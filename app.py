@@ -57,7 +57,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Banco de Casos Clínicos Mixtos (Medicina Interna)
+# Banco de Casos Clínicos Mixtos
 CASOS_ESTANDAR = {
     "Caso 01: Varón de 42 años con dolor torácico y disnea": (
         "Paciente de 42 años, masculino, tabaquista activo, con 48 horas de evolución de "
@@ -93,7 +93,7 @@ CASOS_ESTANDAR = {
     )
 }
 
-# --- BARRA LATERAL: CONFIGURACIÓN Y GOBERNANZA ---
+# --- BARRA LATERAL ---
 with st.sidebar:
     st.markdown("### 🔑 Credenciales de Acceso")
     gemini_api_key = st.text_input("Ingrese su Google AI Studio API Key:", type="password", placeholder="AIza...")
@@ -102,16 +102,12 @@ with st.sidebar:
     st.markdown("### ⚙️ Selección del Escenario")
     modo_caso = st.radio("Origen del caso clínico:", ["Banco Estándar (Medicina Interna)", "Cargar Caso Personalizado"])
     
-    # Función para reiniciar el motor cognitivo cuando se cambia de caso
     def reiniciar_estado(nuevo_titulo, nuevo_caso):
         st.session_state.caso_activo = nuevo_caso
         st.session_state.titulo_caso_actual = nuevo_titulo
         st.session_state.mensajes = [
             {"role": "model", "parts": "**Comité Evaluador:** Viñeta clínica analizada. **¿Cuál es su impresión sindrómica inicial y qué hipótesis diagnósticas de urgencia prioriza?**"}
         ]
-        # Borramos el objeto del chat para que la IA pierda la memoria del paciente anterior
-        if "chat_obj" in st.session_state:
-            del st.session_state.chat_obj
 
     if modo_caso == "Banco Estándar (Medicina Interna)":
         st.markdown("#### 📚 Casos Clínicos")
@@ -140,7 +136,6 @@ with st.sidebar:
         reiniciar_estado(st.session_state.titulo_caso_actual, st.session_state.caso_activo)
         st.rerun()
 
-# Inicialización por defecto
 if "mensajes" not in st.session_state:
     primer_titulo = list(CASOS_ESTANDAR.keys())[0]
     primer_caso = list(CASOS_ESTANDAR.values())[0]
@@ -154,7 +149,6 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Tarjeta de Viñeta
 titulo_actual = st.session_state.get("titulo_caso_actual", "Caso Clínico Activo")
 texto_caso_actual = st.session_state.get("caso_activo", "")
 
@@ -165,11 +159,10 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Validación y Motor Principal
+# Validación y Motor
 if not gemini_api_key:
     st.warning("⚠️ Por favor, ingrese su **Google AI Studio API Key** en la barra lateral izquierda para activar la tutoría del comité clínico.")
 else:
-    # 1. HERRAMIENTAS Y CONFIGURACIÓN DEL NUEVO SDK
     funciones_clinicas = [
         {'name': 'calculadora_metabolica_cad', 'description': 'Calcula el anión gap y el sodio corregido. Usar si hay laboratorios de paciente con hiperglucemia severa.', 'parameters': {'type': 'OBJECT', 'properties': {'sodio_medido': {'type': 'NUMBER'}, 'cloro': {'type': 'NUMBER'}, 'bicarbonato': {'type': 'NUMBER'}, 'glucemia': {'type': 'NUMBER'}}, 'required': ['sodio_medido', 'cloro', 'bicarbonato', 'glucemia']}},
         {'name': 'calculadora_filtrado_glomerular_ckd_epi', 'description': 'Calcula TFGe. Usar si el usuario propone fármacos de excreción renal.', 'parameters': {'type': 'OBJECT', 'properties': {'edad': {'type': 'INTEGER'}, 'sexo': {'type': 'STRING'}, 'creatinina': {'type': 'NUMBER'}}, 'required': ['edad', 'sexo', 'creatinina']}},
@@ -200,18 +193,13 @@ else:
         tools=[{'function_declarations': funciones_clinicas}]
     )
 
-    # 2. INICIAR EL MOTOR Y MANTENER LA SESIÓN
-    if "chat_obj" not in st.session_state:
-        st.session_state.chat_obj = client.chats.create(model="gemini-3-flash-preview", config=config)
-
-    # 3. MOSTRAR HISTORIAL
+    # MOSTRAR HISTORIAL
     for msg in st.session_state.mensajes:
         role = msg["role"]
         avatar = "🩺" if role == "model" else "👨‍⚕️"
         with st.chat_message("assistant" if role == "model" else "user", avatar=avatar):
             st.markdown(msg["parts"])
 
-    # 4. ENTRADA DE TEXTO Y PROCESAMIENTO
     prompt_usuario = st.chat_input("Escriba su razonamiento clínico...")
 
     if prompt_usuario:
@@ -222,21 +210,26 @@ else:
         with st.chat_message("assistant", avatar="🩺"):
             try:
                 with st.spinner("El comité evaluador está analizando su razonamiento clínico..."):
-                    # Enviamos el mensaje al objeto chat
-                    response = st.session_state.chat_obj.send_message(prompt_usuario)
+                    # Reconstrucción de la historia en cada interacción para evitar errores de conexión
+                    history_contents = []
+                    for m in st.session_state.mensajes[:-1]:
+                        history_contents.append(
+                            types.Content(role=m["role"], parts=[types.Part.from_text(text=m["parts"])])
+                        )
                     
-                    # Intercepción: Si el modelo pide una herramienta
+                    # Se crea un nuevo objeto de chat con el historial reconstruido
+                    chat_obj = client.chats.create(model="gemini-3-flash-preview", config=config, history=history_contents)
+                    response = chat_obj.send_message(prompt_usuario)
+                    
                     if getattr(response, 'function_calls', None):
                         for function_call in response.function_calls:
                             nombre = function_call.name
                             args = function_call.args
                             
-                            # Interfaz visual de carga para el residente
                             with st.status(f"⚠️ Pausa Diagnóstica: Procesando {nombre}...", expanded=True) as status:
                                 resultado_clinico = ""
                                 st.write("Analizando variables clínicas ingresadas...")
                                 
-                                # --- LÓGICA MATEMÁTICA ---
                                 if nombre == 'calculadora_exacerbacion_epoc':
                                     criterios = args.get('aumento_disnea', 0) + args.get('aumento_volumen_esputo', 0) + args.get('purulencia_esputo', 0)
                                     o2_obj = args.get('saturacion_oxigeno_objetivo', 0)
@@ -263,22 +256,19 @@ else:
                                 st.write(f"**Cálculo interno:** {resultado_clinico}")
                                 status.update(label="Auditoría matemática completada", state="complete", expanded=False)
                             
-                            # Devolvemos el cálculo a Socrático
                             respuesta_funcion = {
                                 "function_response": {
                                     "name": nombre,
                                     "response": {"analisis_matematico": resultado_clinico}
                                 }
                             }
-                            response_final = st.session_state.chat_obj.send_message([respuesta_funcion])
+                            response_final = chat_obj.send_message([respuesta_funcion])
                             respuesta_ia = response_final.text
                     else:
-                        # Respuesta estándar sin herramientas
                         respuesta_ia = response.text
 
-                # Mostrar y guardar respuesta final
                 st.markdown(respuesta_ia)
                 st.session_state.mensajes.append({"role": "model", "parts": respuesta_ia})
                 
             except Exception as e:
-                st.error(f"Error de conexión (Posible Error 503 por alta demanda). El simulador guardó la sesión, intente responder nuevamente. Detalle técnico: {e}")
+                st.error(f"Error técnico detectado. Detalle: {e}")
