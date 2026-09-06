@@ -1,6 +1,7 @@
 # app.py - Simulador Socrático de Medicina Interna con Detección de Sesgos
 import streamlit as st
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # Configuración de la página
 st.set_page_config(
@@ -10,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inyección de CSS personalizado (Estilo editorial sobrio)
+# Inyección de CSS personalizado
 st.markdown("""
     <style>
     .main-header {
@@ -101,6 +102,17 @@ with st.sidebar:
     st.markdown("### ⚙️ Selección del Escenario")
     modo_caso = st.radio("Origen del caso clínico:", ["Banco Estándar (Medicina Interna)", "Cargar Caso Personalizado"])
     
+    # Función para reiniciar el motor cognitivo cuando se cambia de caso
+    def reiniciar_estado(nuevo_titulo, nuevo_caso):
+        st.session_state.caso_activo = nuevo_caso
+        st.session_state.titulo_caso_actual = nuevo_titulo
+        st.session_state.mensajes = [
+            {"role": "model", "parts": "**Comité Evaluador:** Viñeta clínica analizada. **¿Cuál es su impresión sindrómica inicial y qué hipótesis diagnósticas de urgencia prioriza?**"}
+        ]
+        # Borramos el objeto del chat para que la IA pierda la memoria del paciente anterior
+        if "chat_obj" in st.session_state:
+            del st.session_state.chat_obj
+
     if modo_caso == "Banco Estándar (Medicina Interna)":
         st.markdown("#### 📚 Casos Clínicos")
         nombre_caso_elegido = st.selectbox("Seleccione un escenario de práctica:", list(CASOS_ESTANDAR.keys()))
@@ -108,11 +120,7 @@ with st.sidebar:
         
         if "ultimo_caso_seleccionado" not in st.session_state or st.session_state.ultimo_caso_seleccionado != nombre_caso_elegido:
             st.session_state.ultimo_caso_seleccionado = nombre_caso_elegido
-            st.session_state.caso_activo = caso_activo_seleccionado
-            st.session_state.titulo_caso_actual = nombre_caso_elegido
-            st.session_state.mensajes = [
-                {"role": "model", "parts": ["**Comité Evaluador:** Viñeta clínica analizada. **¿Cuál es su impresión sindrómica inicial y qué hipótesis diagnósticas de urgencia prioriza?**"]}
-            ]
+            reiniciar_estado(nombre_caso_elegido, caso_activo_seleccionado)
     else:
         st.markdown("---")
         st.markdown("#### 📝 Ingresar Caso Propio")
@@ -120,11 +128,7 @@ with st.sidebar:
         nuevo_caso_desc = st.text_area("Descripción detallada del cuadro:", "Antecedentes, síntomas, signos vitales...")
         
         if st.button("Establecer este Caso", use_container_width=True):
-            st.session_state.caso_activo = f"Detalles clínicos: {nuevo_caso_desc}"
-            st.session_state.titulo_caso_actual = nuevo_caso_titulo
-            st.session_state.mensajes = [
-                {"role": "model", "parts": ["**Comité Evaluador:** Caso personalizado cargado exitosamente. **¿Cuál es su impresión sindrómica inicial y qué hipótesis diagnóstica prioriza?**"]}
-            ]
+            reiniciar_estado(nuevo_caso_titulo, f"Detalles clínicos: {nuevo_caso_desc}")
             st.rerun()
 
     st.markdown("---")
@@ -133,20 +137,14 @@ with st.sidebar:
     
     st.markdown("---")
     if st.button("🔄 Reiniciar Discusión", use_container_width=True):
-        st.session_state.mensajes = [
-            {"role": "model", "parts": ["**Comité Evaluador:** Discusión reiniciada. **¿Cuál es su impresión sindrómica inicial y qué hipótesis diagnóstica prioriza?**"]}
-        ]
+        reiniciar_estado(st.session_state.titulo_caso_actual, st.session_state.caso_activo)
         st.rerun()
 
-# Inicialización por defecto del historial si no existe
+# Inicialización por defecto
 if "mensajes" not in st.session_state:
     primer_titulo = list(CASOS_ESTANDAR.keys())[0]
     primer_caso = list(CASOS_ESTANDAR.values())[0]
-    st.session_state.caso_activo = primer_caso
-    st.session_state.titulo_caso_actual = primer_titulo
-    st.session_state.mensajes = [
-        {"role": "model", "parts": ["**Comité Evaluador:** Viñeta clínica analizada. **¿Cuál es su impresión sindrómica inicial y qué hipótesis diagnósticas de urgencia prioriza?**"]}
-    ]
+    reiniciar_estado(primer_titulo, primer_caso)
 
 # --- CUERPO PRINCIPAL ---
 st.markdown("""
@@ -156,7 +154,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Tarjeta de Viñeta Clínica Activa
+# Tarjeta de Viñeta
 titulo_actual = st.session_state.get("titulo_caso_actual", "Caso Clínico Activo")
 texto_caso_actual = st.session_state.get("caso_activo", "")
 
@@ -167,62 +165,120 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Validación de API Key e Interacción
+# Validación y Motor Principal
 if not gemini_api_key:
     st.warning("⚠️ Por favor, ingrese su **Google AI Studio API Key** en la barra lateral izquierda para activar la tutoría del comité clínico.")
 else:
-    genai.configure(api_key=gemini_api_key)
+    # 1. HERRAMIENTAS Y CONFIGURACIÓN DEL NUEVO SDK
+    funciones_clinicas = [
+        {'name': 'calculadora_metabolica_cad', 'description': 'Calcula el anión gap y el sodio corregido. Usar si hay laboratorios de paciente con hiperglucemia severa.', 'parameters': {'type': 'OBJECT', 'properties': {'sodio_medido': {'type': 'NUMBER'}, 'cloro': {'type': 'NUMBER'}, 'bicarbonato': {'type': 'NUMBER'}, 'glucemia': {'type': 'NUMBER'}}, 'required': ['sodio_medido', 'cloro', 'bicarbonato', 'glucemia']}},
+        {'name': 'calculadora_filtrado_glomerular_ckd_epi', 'description': 'Calcula TFGe. Usar si el usuario propone fármacos de excreción renal.', 'parameters': {'type': 'OBJECT', 'properties': {'edad': {'type': 'INTEGER'}, 'sexo': {'type': 'STRING'}, 'creatinina': {'type': 'NUMBER'}}, 'required': ['edad', 'sexo', 'creatinina']}},
+        {'name': 'calculadora_score_heart', 'description': 'Calcula Score HEART. Usar en alta o internación por dolor torácico sin estratificar.', 'parameters': {'type': 'OBJECT', 'properties': {'historia': {'type': 'INTEGER'}, 'ecg': {'type': 'INTEGER'}, 'edad': {'type': 'INTEGER'}, 'factores_riesgo': {'type': 'INTEGER'}, 'troponina': {'type': 'INTEGER'}}, 'required': ['historia', 'ecg', 'edad', 'factores_riesgo', 'troponina']}},
+        {'name': 'calculadora_score_wells_tep', 'description': 'Calcula Score Wells. Usar si se pide Angio-TAC o Dímero D empíricamente.', 'parameters': {'type': 'OBJECT', 'properties': {'sintomas_tvp': {'type': 'NUMBER'}, 'diagnostico_alternativo_menos_probable': {'type': 'NUMBER'}, 'frecuencia_cardiaca_alta': {'type': 'NUMBER'}, 'inmovilizacion_o_cirugia': {'type': 'NUMBER'}, 'antecedente_tep_tvp': {'type': 'NUMBER'}, 'hemoptisis': {'type': 'NUMBER'}, 'malignidad': {'type': 'NUMBER'}}, 'required': ['sintomas_tvp', 'diagnostico_alternativo_menos_probable', 'frecuencia_cardiaca_alta', 'inmovilizacion_o_cirugia', 'antecedente_tep_tvp', 'hemoptisis', 'malignidad']}},
+        {'name': 'calculadora_exacerbacion_epoc', 'description': 'Evalúa Criterios de Anthonisen y oxigenoterapia en EPOC.', 'parameters': {'type': 'OBJECT', 'properties': {'aumento_disnea': {'type': 'INTEGER'}, 'aumento_volumen_esputo': {'type': 'INTEGER'}, 'purulencia_esputo': {'type': 'INTEGER'}, 'saturacion_oxigeno_objetivo': {'type': 'INTEGER'}}, 'required': ['aumento_disnea', 'aumento_volumen_esputo', 'purulencia_esputo', 'saturacion_oxigeno_objetivo']}}
+    ]
 
     system_instruction = f"""
-    Eres un comité médico experto en tutoría socrática y seguridad del paciente para médicos residentes, emulando un comité de análisis de errores de razonamiento clínico.
-    El caso clínico actual sobre el que debes guiar al residente es: '{st.session_state.caso_activo}'.
+    Eres un comité médico experto en tutoría socrática emulando un análisis de errores de razonamiento.
+    Caso clínico actual: '{texto_caso_actual}'.
     
-    INSTRUCCIÓN PEDAGÓGICA Y DETECCIÓN DE SESGOS:
-    1. Analiza minuciosamente la respuesta del residente en busca de sesgos cognitivos frecuentes (ej. Sesgo de anclaje, Cierre prematuro, Inercia clínica, Sesgo de confirmación o Disponibilidad).
-    2. Si detectas que el residente cae en un sesgo evidente, estructura tu respuesta obligatoriamente en tres momentos:
-       - **Alerta Metacognitiva:** Nombra claramente el sesgo detectado (por ejemplo: *"Se observa una tendencia al sesgo de anclaje al focalizar..."*).
-       - **Explicación Formativa:** Explica de forma concisa y rigurosa en qué consiste ese sesgo y por qué representa un riesgo crítico para el diagnóstico diferencial y la seguridad del paciente.
-       - **Repregunta Socrática:** Cierra con una pregunta clínica desafiante que lo obligue a revaluar los datos negativos o alternativos que pasó por alto.
-    3. Si el razonamiento es sólido y clínico, continúa con la profundización socrática sin necesidad de bloquearlo con teoría.
-    4. Mantén un tono académico, formal, riguroso, neutral y estrictamente en castellano neutro.
+    INSTRUCCIÓN PEDAGÓGICA Y PAUSAS DIAGNÓSTICAS:
+    1. Si detectas un sesgo (anclaje, cierre prematuro), nombra el sesgo, explícalo y haz una repregunta socrática.
+    2. REGLAS DE HERRAMIENTAS OBLIGATORIAS (Uso interno): Debes ejecutar las calculadoras para obtener los valores matemáticos exactos y auditar al residente. NUNCA le muestres el resultado de la calculadora directamente; utiliza esa información oculta para evaluar si los cálculos que él te presente son correctos o para guiar tus repreguntas.
+       - Ante laboratorios de hiperglucemia severa o sospecha de CAD: EJECUTA calculadora_metabolica_cad.
+       - Si prescribe medicación de ajuste renal: EJECUTA calculadora_filtrado_glomerular_ckd_epi.
+       - Si da el alta en dolor torácico por instinto: EJECUTA calculadora_score_heart.
+       - Si pide Angio-TAC o Dímero D empíricamente: EJECUTA calculadora_score_wells_tep.
+       - Si propone antibióticos o ajuste de O2 en EPOC: EJECUTA calculadora_exacerbacion_epoc.
+    3. Mantén un tono académico neutral riguroso.
     """
 
-    model = genai.GenerativeModel(
-        model_name="gemini-3.6-flash",
-        system_instruction=system_instruction
+    client = genai.Client(api_key=gemini_api_key)
+    config = types.GenerateContentConfig(
+        temperature=0.1,
+        system_instruction=system_instruction,
+        tools=[{'function_declarations': funciones_clinicas}]
     )
 
-    # Mostrar historial de la discusión clínica
+    # 2. INICIAR EL MOTOR Y MANTENER LA SESIÓN
+    if "chat_obj" not in st.session_state:
+        st.session_state.chat_obj = client.chats.create(model="gemini-3-flash-preview", config=config)
+
+    # 3. MOSTRAR HISTORIAL
     for msg in st.session_state.mensajes:
         role = msg["role"]
         avatar = "🩺" if role == "model" else "👨‍⚕️"
-        text_content = msg["parts"][0] if isinstance(msg["parts"], list) else msg["parts"]
         with st.chat_message("assistant" if role == "model" else "user", avatar=avatar):
-            st.markdown(text_content)
+            st.markdown(msg["parts"])
 
-    # Entrada del usuario
-    prompt_usuario = st.chat_input("Escriba su razonamiento clínico, hipótesis o respuesta al comité...")
+    # 4. ENTRADA DE TEXTO Y PROCESAMIENTO
+    prompt_usuario = st.chat_input("Escriba su razonamiento clínico...")
 
     if prompt_usuario:
-        st.session_state.mensajes.append({"role": "user", "parts": [prompt_usuario]})
+        st.session_state.mensajes.append({"role": "user", "parts": prompt_usuario})
         with st.chat_message("user", avatar="👨‍⚕️"):
             st.markdown(prompt_usuario)
 
         with st.chat_message("assistant", avatar="🩺"):
-            with st.spinner("El comité evaluador está analizando su razonamiento clínico..."):
-                try:
-                    chat_history = []
-                    for m in st.session_state.mensajes[:-1]:
-                        chat_history.append({
-                            "role": m["role"],
-                            "parts": m["parts"] if isinstance(m["parts"], list) else [m["parts"]]
-                        })
+            try:
+                with st.spinner("El comité evaluador está analizando su razonamiento clínico..."):
+                    # Enviamos el mensaje al objeto chat
+                    response = st.session_state.chat_obj.send_message(prompt_usuario)
+                    
+                    # Intercepción: Si el modelo pide una herramienta
+                    if getattr(response, 'function_calls', None):
+                        for function_call in response.function_calls:
+                            nombre = function_call.name
+                            args = function_call.args
+                            
+                            # Interfaz visual de carga para el residente
+                            with st.status(f"⚠️ Pausa Diagnóstica: Procesando {nombre}...", expanded=True) as status:
+                                resultado_clinico = ""
+                                st.write("Analizando variables clínicas ingresadas...")
+                                
+                                # --- LÓGICA MATEMÁTICA ---
+                                if nombre == 'calculadora_exacerbacion_epoc':
+                                    criterios = args.get('aumento_disnea', 0) + args.get('aumento_volumen_esputo', 0) + args.get('purulencia_esputo', 0)
+                                    o2_obj = args.get('saturacion_oxigeno_objetivo', 0)
+                                    resultado_clinico = f"Criterios de Anthonisen: {criterios}/3. "
+                                    if o2_obj > 92: resultado_clinico += f"ALERTA: Objetivo {o2_obj}% riesgoso por retención CO2."
+                                    else: resultado_clinico += f"Objetivo O2 {o2_obj}% correcto."
+                                        
+                                elif nombre == 'calculadora_metabolica_cad':
+                                    anion_gap = args['sodio_medido'] - (args['cloro'] + args['bicarbonato'])
+                                    na_corr = args['sodio_medido'] + 0.016 * (args['glucemia'] - 100)
+                                    resultado_clinico = f"Anión Gap calculado: {anion_gap}. Sodio corregido: {na_corr:.1f} mEq/L."
+                                    
+                                elif nombre == 'calculadora_score_heart':
+                                    score = args['historia'] + args['ecg'] + args['edad'] + args['factores_riesgo'] + args['troponina']
+                                    resultado_clinico = f"Score HEART calculado: {score} puntos."
+                                    
+                                elif nombre == 'calculadora_score_wells_tep':
+                                    score = args['sintomas_tvp'] + args['diagnostico_alternativo_menos_probable'] + args['frecuencia_cardiaca_alta'] + args['inmovilizacion_o_cirugia'] + args['antecedente_tep_tvp'] + args['hemoptisis'] + args['malignidad']
+                                    resultado_clinico = f"Score Wells calculado: {score} puntos."
+                                    
+                                elif nombre == 'calculadora_filtrado_glomerular_ckd_epi':
+                                    resultado_clinico = f"Auditar fármaco para creatinina {args['creatinina']} mg/dL según edad y sexo."
+                                
+                                st.write(f"**Cálculo interno:** {resultado_clinico}")
+                                status.update(label="Auditoría matemática completada", state="complete", expanded=False)
+                            
+                            # Devolvemos el cálculo a Socrático
+                            respuesta_funcion = {
+                                "function_response": {
+                                    "name": nombre,
+                                    "response": {"analisis_matematico": resultado_clinico}
+                                }
+                            }
+                            response_final = st.session_state.chat_obj.send_message([respuesta_funcion])
+                            respuesta_ia = response_final.text
+                    else:
+                        # Respuesta estándar sin herramientas
+                        respuesta_ia = response.text
 
-                    chat = model.start_chat(history=chat_history)
-                    response = chat.send_message(prompt_usuario)
-                    respuesta_ia = response.text
-
-                    st.markdown(respuesta_ia)
-                    st.session_state.mensajes.append({"role": "model", "parts": [respuesta_ia]})
-                except Exception as e:
-                    st.error(f"Error al conectar con la API de Gemini: {e}")
+                # Mostrar y guardar respuesta final
+                st.markdown(respuesta_ia)
+                st.session_state.mensajes.append({"role": "model", "parts": respuesta_ia})
+                
+            except Exception as e:
+                st.error(f"Error de conexión (Posible Error 503 por alta demanda). El simulador guardó la sesión, intente responder nuevamente. Detalle técnico: {e}")
