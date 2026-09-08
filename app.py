@@ -210,14 +210,13 @@ else:
         with st.chat_message("assistant", avatar="🩺"):
             try:
                 with st.spinner("El comité evaluador está analizando su razonamiento clínico..."):
-                    # Reconstrucción de la historia en cada interacción para evitar errores de conexión
+                    # Reconstrucción de la historia en cada interacción
                     history_contents = []
                     for m in st.session_state.mensajes[:-1]:
                         history_contents.append(
                             types.Content(role=m["role"], parts=[types.Part.from_text(text=m["parts"])])
                         )
                     
-                    # Se crea un nuevo objeto de chat con el historial reconstruido
                     chat_obj = client.chats.create(model="gemini-3-flash-preview", config=config, history=history_contents)
                     response = chat_obj.send_message(prompt_usuario)
                     
@@ -256,13 +255,12 @@ else:
                                 st.write(f"**Cálculo interno:** {resultado_clinico}")
                                 status.update(label="Auditoría matemática completada", state="complete", expanded=False)
                             
-                            respuesta_funcion = {
-                                "function_response": {
-                                    "name": nombre,
-                                    "response": {"analisis_matematico": resultado_clinico}
-                                }
-                            }
-                            response_final = chat_obj.send_message([respuesta_funcion])
+                            # Corrección aplicada aquí
+                            respuesta_funcion = types.Part.from_function_response(
+                                name=nombre,
+                                response={"analisis_matematico": resultado_clinico}
+                            )
+                            response_final = chat_obj.send_message(respuesta_funcion)
                             respuesta_ia = response_final.text
                     else:
                         respuesta_ia = response.text
