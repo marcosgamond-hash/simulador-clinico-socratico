@@ -183,14 +183,18 @@ else:
        - Si da el alta en dolor torácico por instinto: EJECUTA calculadora_score_heart.
        - Si pide Angio-TAC o Dímero D empíricamente: EJECUTA calculadora_score_wells_tep.
        - Si propone antibióticos o ajuste de O2 en EPOC: EJECUTA calculadora_exacerbacion_epoc.
-    3. Mantén un tono académico neutral riguroso.
+    3. REGLA DE BÚSQUEDA WEB: Cuando el residente proponga un tratamiento farmacológico o algoritmo diagnóstico, utiliza tu herramienta de búsqueda en Google para consultar los consensos o guías clínicas más recientes (ej. ADA, GOLD, KDIGO, ESC) y fundamentar tu retroalimentación en evidencia actualizada.
+    4. Mantén un tono académico neutral riguroso.
     """
 
     client = genai.Client(api_key=gemini_api_key)
     config = types.GenerateContentConfig(
         temperature=0.1,
         system_instruction=system_instruction,
-        tools=[{'function_declarations': funciones_clinicas}]
+        tools=[
+            {'function_declarations': funciones_clinicas},
+            {'google_search': {}}
+        ]
     )
 
     # MOSTRAR HISTORIAL
@@ -255,7 +259,6 @@ else:
                                 st.write(f"**Cálculo interno:** {resultado_clinico}")
                                 status.update(label="Auditoría matemática completada", state="complete", expanded=False)
                             
-                            # Corrección aplicada aquí
                             respuesta_funcion = types.Part.from_function_response(
                                 name=nombre,
                                 response={"analisis_matematico": resultado_clinico}
