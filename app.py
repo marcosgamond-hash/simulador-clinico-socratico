@@ -1,7 +1,10 @@
-# app.py - Simulador Socrático de Medicina Interna con Detección de Sesgos
+# app.py - Simulador Socrático de Medicina Interna con Detección de Sesgos y Analíticas
 import streamlit as st
+import pandas as pd
+from datetime import datetime
 from google import genai
 from google.genai import types
+from streamlit_gsheets import GSheetsConnection
 
 # Configuración de la página
 st.set_page_config(
@@ -10,6 +13,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Conexión a Google Sheets
+conn = st.connection("gsheets", type=GSheetsConnection)
+URL_PLANILLA = "https://docs.google.com/spreadsheets/d/1s-IBpntSc5fBzuiAw8ePOho3DjB6G8N8ubm1JQXmTtU/edit"
 
 # Inyección de CSS personalizado
 st.markdown("""
@@ -168,7 +175,8 @@ else:
         {'name': 'calculadora_filtrado_glomerular_ckd_epi', 'description': 'Calcula TFGe. Usar si el usuario propone fármacos de excreción renal.', 'parameters': {'type': 'OBJECT', 'properties': {'edad': {'type': 'INTEGER'}, 'sexo': {'type': 'STRING'}, 'creatinina': {'type': 'NUMBER'}}, 'required': ['edad', 'sexo', 'creatinina']}},
         {'name': 'calculadora_score_heart', 'description': 'Calcula Score HEART. Usar en alta o internación por dolor torácico sin estratificar.', 'parameters': {'type': 'OBJECT', 'properties': {'historia': {'type': 'INTEGER'}, 'ecg': {'type': 'INTEGER'}, 'edad': {'type': 'INTEGER'}, 'factores_riesgo': {'type': 'INTEGER'}, 'troponina': {'type': 'INTEGER'}}, 'required': ['historia', 'ecg', 'edad', 'factores_riesgo', 'troponina']}},
         {'name': 'calculadora_score_wells_tep', 'description': 'Calcula Score Wells. Usar si se pide Angio-TAC o Dímero D empíricamente.', 'parameters': {'type': 'OBJECT', 'properties': {'sintomas_tvp': {'type': 'NUMBER'}, 'diagnostico_alternativo_menos_probable': {'type': 'NUMBER'}, 'frecuencia_cardiaca_alta': {'type': 'NUMBER'}, 'inmovilizacion_o_cirugia': {'type': 'NUMBER'}, 'antecedente_tep_tvp': {'type': 'NUMBER'}, 'hemoptisis': {'type': 'NUMBER'}, 'malignidad': {'type': 'NUMBER'}}, 'required': ['sintomas_tvp', 'diagnostico_alternativo_menos_probable', 'frecuencia_cardiaca_alta', 'inmovilizacion_o_cirugia', 'antecedente_tep_tvp', 'hemoptisis', 'malignidad']}},
-        {'name': 'calculadora_exacerbacion_epoc', 'description': 'Evalúa Criterios de Anthonisen y oxigenoterapia en EPOC.', 'parameters': {'type': 'OBJECT', 'properties': {'aumento_disnea': {'type': 'INTEGER'}, 'aumento_volumen_esputo': {'type': 'INTEGER'}, 'purulencia_esputo': {'type': 'INTEGER'}, 'saturacion_oxigeno_objetivo': {'type': 'INTEGER'}}, 'required': ['aumento_disnea', 'aumento_volumen_esputo', 'purulencia_esputo', 'saturacion_oxigeno_objetivo']}}
+        {'name': 'calculadora_exacerbacion_epoc', 'description': 'Evalúa Criterios de Anthonisen y oxigenoterapia en EPOC.', 'parameters': {'type': 'OBJECT', 'properties': {'aumento_disnea': {'type': 'INTEGER'}, 'aumento_volumen_esputo': {'type': 'INTEGER'}, 'purulencia_esputo': {'type': 'INTEGER'}, 'saturacion_oxigeno_objetivo': {'type': 'INTEGER'}}, 'required': ['aumento_disnea', 'aumento_volumen_esputo', 'purulencia_esputo', 'saturacion_oxigeno_objetivo']}},
+        {'name': 'registrar_sesgo_cognitivo', 'description': 'Registra un error de razonamiento o sesgo cognitivo detectado en el alumno para el panel de analíticas institucional.', 'parameters': {'type': 'OBJECT', 'properties': {'tipo_sesgo': {'type': 'STRING', 'description': 'El tipo de error cometido.', 'enum': ['Cierre Prematuro', 'Anclaje', 'Sesgo de Confirmación', 'Error de Cálculo', 'Tratamiento Inseguro']}, 'justificacion': {'type': 'STRING'}}, 'required': ['tipo_sesgo', 'justificacion']}}
     ]
 
     system_instruction = f"""
@@ -178,13 +186,9 @@ else:
     INSTRUCCIÓN PEDAGÓGICA Y PAUSAS DIAGNÓSTICAS:
     1. Si detectas un sesgo (anclaje, cierre prematuro), nombra el sesgo, explícalo y haz una repregunta socrática.
     2. REGLAS DE HERRAMIENTAS OBLIGATORIAS (Uso interno): Debes ejecutar las calculadoras para obtener los valores matemáticos exactos y auditar al residente. NUNCA le muestres el resultado de la calculadora directamente; utiliza esa información oculta para evaluar si los cálculos que él te presente son correctos o para guiar tus repreguntas.
-       - Ante laboratorios de hiperglucemia severa o sospecha de CAD: EJECUTA calculadora_metabolica_cad.
-       - Si prescribe medicación de ajuste renal: EJECUTA calculadora_filtrado_glomerular_ckd_epi.
-       - Si da el alta en dolor torácico por instinto: EJECUTA calculadora_score_heart.
-       - Si pide Angio-TAC o Dímero D empíricamente: EJECUTA calculadora_score_wells_tep.
-       - Si propone antibióticos o ajuste de O2 en EPOC: EJECUTA calculadora_exacerbacion_epoc.
     3. REGLA DE BÚSQUEDA WEB: Cuando el residente proponga un tratamiento farmacológico o algoritmo diagnóstico, utiliza tu herramienta de búsqueda en Google para consultar los consensos o guías clínicas más recientes (ej. ADA, GOLD, KDIGO, ESC) y fundamentar tu retroalimentación en evidencia actualizada.
     4. Mantén un tono académico neutral riguroso.
+    5. REGLA DE AUDITORÍA INSTITUCIONAL: Cada vez que detectes un sesgo cognitivo grave, un error de cálculo o la propuesta de un tratamiento inseguro, debes EJECUTAR obligatoriamente la herramienta 'registrar_sesgo_cognitivo' antes de responderle al usuario. Esto es vital para las métricas de la coordinación académica.
     """
 
     client = genai.Client(api_key=gemini_api_key)
@@ -214,7 +218,6 @@ else:
         with st.chat_message("assistant", avatar="🩺"):
             try:
                 with st.spinner("El comité evaluador está analizando su razonamiento clínico..."):
-                    # Reconstrucción de la historia en cada interacción
                     history_contents = []
                     for m in st.session_state.mensajes[:-1]:
                         history_contents.append(
@@ -231,9 +234,29 @@ else:
                             
                             with st.status(f"⚠️ Pausa Diagnóstica: Procesando {nombre}...", expanded=True) as status:
                                 resultado_clinico = ""
-                                st.write("Analizando variables clínicas ingresadas...")
+                                st.write("Ejecutando herramienta interna...")
                                 
-                                if nombre == 'calculadora_exacerbacion_epoc':
+                                if nombre == 'registrar_sesgo_cognitivo':
+                                    tipo_sesgo = args.get('tipo_sesgo', 'No especificado')
+                                    justificacion = args.get('justificacion', 'Sin justificación')
+                                    try:
+                                        # Leer datos actuales de Google Sheets
+                                        df = conn.read(spreadsheet=URL_PLANILLA)
+                                        # Crear nueva fila de registro
+                                        nueva_fila = pd.DataFrame([{
+                                            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                            "Caso Clínico": st.session_state.titulo_caso_actual,
+                                            "Tipo de Sesgo": tipo_sesgo,
+                                            "Justificación del Motor Médico": justificacion
+                                        }])
+                                        # Agregar fila y subir a Google Sheets
+                                        df_actualizado = pd.concat([df, nueva_fila], ignore_index=True)
+                                        conn.update(spreadsheet=URL_PLANILLA, data=df_actualizado)
+                                        resultado_clinico = f"Sesgo '{tipo_sesgo}' guardado correctamente en la planilla de métricas."
+                                    except Exception as db_error:
+                                        resultado_clinico = f"Error al conectar con la base de datos: {db_error}"
+
+                                elif nombre == 'calculadora_exacerbacion_epoc':
                                     criterios = args.get('aumento_disnea', 0) + args.get('aumento_volumen_esputo', 0) + args.get('purulencia_esputo', 0)
                                     o2_obj = args.get('saturacion_oxigeno_objetivo', 0)
                                     resultado_clinico = f"Criterios de Anthonisen: {criterios}/3. "
@@ -256,12 +279,12 @@ else:
                                 elif nombre == 'calculadora_filtrado_glomerular_ckd_epi':
                                     resultado_clinico = f"Auditar fármaco para creatinina {args['creatinina']} mg/dL según edad y sexo."
                                 
-                                st.write(f"**Cálculo interno:** {resultado_clinico}")
-                                status.update(label="Auditoría matemática completada", state="complete", expanded=False)
+                                st.write(f"**Resultado de la ejecución:** {resultado_clinico}")
+                                status.update(label="Auditoría interna completada", state="complete", expanded=False)
                             
                             respuesta_funcion = types.Part.from_function_response(
                                 name=nombre,
-                                response={"analisis_matematico": resultado_clinico}
+                                response={"resultado_ejecucion": resultado_clinico}
                             )
                             response_final = chat_obj.send_message(respuesta_funcion)
                             respuesta_ia = response_final.text
