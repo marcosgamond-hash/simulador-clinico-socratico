@@ -186,18 +186,18 @@ else:
     INSTRUCCIÓN PEDAGÓGICA Y PAUSAS DIAGNÓSTICAS:
     1. Si detectas un sesgo (anclaje, cierre prematuro), nombra el sesgo, explícalo y haz una repregunta socrática.
     2. REGLAS DE HERRAMIENTAS OBLIGATORIAS (Uso interno): Debes ejecutar las calculadoras para obtener los valores matemáticos exactos y auditar al residente. NUNCA le muestres el resultado de la calculadora directamente; utiliza esa información oculta para evaluar si los cálculos que él te presente son correctos o para guiar tus repreguntas.
-    3. REGLA DE BÚSQUEDA WEB: Cuando el residente proponga un tratamiento farmacológico o algoritmo diagnóstico, utiliza tu herramienta de búsqueda en Google para consultar los consensos o guías clínicas más recientes (ej. ADA, GOLD, KDIGO, ESC) y fundamentar tu retroalimentación en evidencia actualizada.
-    4. Mantén un tono académico neutral riguroso.
-    5. REGLA DE AUDITORÍA INSTITUCIONAL: Cada vez que detectes un sesgo cognitivo grave, un error de cálculo o la propuesta de un tratamiento inseguro, debes EJECUTAR obligatoriamente la herramienta 'registrar_sesgo_cognitivo' antes de responderle al usuario. Esto es vital para las métricas de la coordinación académica.
+    3. Mantén un tono académico neutral riguroso.
+    4. REGLA DE AUDITORÍA INSTITUCIONAL: Cada vez que detectes un sesgo cognitivo grave, un error de cálculo o la propuesta de un tratamiento inseguro, debes EJECUTAR obligatoriamente la herramienta 'registrar_sesgo_cognitivo' antes de responderle al usuario. Esto es vital para las métricas de la coordinación académica.
     """
 
     client = genai.Client(api_key=gemini_api_key)
+    
+    # Se eliminó {'google_search': {}} de la configuración de herramientas
     config = types.GenerateContentConfig(
         temperature=0.1,
         system_instruction=system_instruction,
         tools=[
-            {'function_declarations': funciones_clinicas},
-            {'google_search': {}}
+            {'function_declarations': funciones_clinicas}
         ]
     )
 
