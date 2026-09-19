@@ -1,7 +1,6 @@
-"""
-SOCRATICO - SIMULADOR DE RAZONAMIENTO CLINICO Y GOBERNANZA EN URGENCIAS
-Version Monolitica 100% Autosuficiente para Hugging Face Spaces.
-"""
+# -*- coding: utf-8 -*-
+# SOCRATICO - SIMULADOR DE RAZONAMIENTO CLINICO Y GOBERNANZA EN URGENCIAS
+# Version Monolitica 100% Autosuficiente para Hugging Face Spaces.
 import sys
 import os
 import re
@@ -20,7 +19,18 @@ import altair as alt
 from google import genai
 from google.genai import types
 
-# Skills clinicas embebidas
+# ---------------------------------------------------------
+# CONFIGURACION DE PAGINA: PRIMER COMANDO STREAMLIT
+# ---------------------------------------------------------
+APP_TITLE = "Socrático: Simulador de Razonamiento Clínico & Gobernanza en Urgencias"
+st.set_page_config(
+    page_title=APP_TITLE,
+    page_icon="🩺",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Skills clinicas embebidas (Evidence on Demand)
 SKILLS_EMBEDDED: Dict[str, str] = {
   "guia_acv_isquemico_aha": "# Guía de Práctica Clínica: Manejo del ACV Isquémico Agudo (AHA/ASA)\n\n## 1. Evaluación Inicial y Tiempos Críticos (\"Time is Brain\")\n* **Meta Puerta-Aguja (Door-to-Needle):** Menor a 60 minutos (idealmente < 45 minutos).\n* **Descarte Inmediato de Stroke Mimics:**\n  * **Glucemia capilar urgente:** Si glucemia < 50 mg/dL, administrar dextrosa hipertónica de inmediato (la hipoglucemia produce focalidad neurológica indistinguible de un ACV).\n  * Otros mimics: Crisis epiléptica con parálisis de Todd, migraña hemipléjica, conversión somatomorfa.\n* **Neuroimagen sin Contraste (TAC de Encéfalo):**\n  * Objetivo primordial: **Descartar hemorragia intracraneal** y evaluar signos tempranos de isquemia extensa (Score ASPECTS < 6 contraindica trombolisis).\n\n---\n\n## 2. Trombolisis Endovenosa (rtPA / Alteplase / Tenecteplase)\n* **Ventana Terapéutica:** Hasta **4.5 horas** desde el inicio de los síntomas (o última vez visto sano).\n* **Control Estricto de Presión Arterial:**\n  * Para trombolizar: **TA debe ser < 185/110 mmHg**.\n  * Si la TA es mayor: Administrar Labetalol 10-20 mg EV en 1-2 min o Nicardipina en infusión continua.\n  * Mantener TA < 180/105 mmHg durante las primeras 24 horas post-trombolisis.\n* **Contraindicaciones Mayores:**\n  * Evidencia de hemorragia en TAC.\n  * ACV isquémico severo o traumatismo craneoencefálico grave en los últimos 3 meses.\n  * Uso de anticoagulantes orales de acción directa (DOACs) en las últimas 48 hs con alteración de coagulograma.\n  * Plaquetas < 100.000/mm³, RIN > 1.7.\n\n---\n\n## 3. Trombectomía Mecánica (Terapia Endovascular)\n* **Indicación:** Oclusión de gran vaso en circulación anterior (Carótida interna intracraneal o segmento M1 de Arteria Cerebral Media).\n* **Ventana:** Hasta **6 horas** de rutina, y hasta **24 horas** si cumple criterios de neuroimagen avanzada por perfusión (protocolos DAWN / DEFUSE-3: tejido infartado pequeño con gran área de penumbra salvable).\n",
   "guia_cetoacidosis_diabetica": "# Protocolo Clínico: Crisis Hiperglucémicas (CAD y EHH)\n\n## 1. Evaluación Inicial y Diagnóstico de Gravedad\n* **Triada de Cetoacidosis Diabética (CAD):**\n  * Hiperglucemia (> 200-250 mg/dL, o CAD euglucémica en usuarios de iSGLT2).\n  * Acidosis metabólica con Anión Gap elevado (pH < 7.30, HCO3 < 18 mEq/L, Anión Gap > 12).\n  * Cetonemia (beta-hidroxibutirato ≥ 3.0 mmol/L) o cetonuria marcada.\n* **Estado Hiperosmolar Hiperglucémico (EHH):**\n  * Glucemia severa (> 600 mg/dL), Osmolaridad plasmática efectiva > 320 mOsm/kg, sin acidosis significativa ni cetonemia.\n\n## 2. Pilares de Tratamiento Secuencial\n\n### Paso 1: Hidratación Parenteral Precoz (Prioridad #1)\n* Solución Salina Isotónica 0.9% a **1000 - 1500 mL en la primera hora** para restaurar volemia efectiva.\n* Luego evaluar sodio corregido (fórmula de Katz: Na medido + 0.016 * [Glucemia - 100]):\n  * Si Na corregido es normal o alto: pasar a Solución Salina al 0.45% (250-500 mL/h).\n  * Si Na corregido es bajo: continuar Solución Salina 0.9% (250-500 mL/h).\n\n### Paso 2: Corrección de Potasio (ANTES de iniciar Insulina)\n* **Regla de Oro:** NUNCA iniciar infusión de insulina si **K+ < 3.3 mEq/L** (riesgo de paro cardíaco por hipopotasemia inducida por insulina).\n* Si K+ < 3.3 mEq/L: Reponer 20-40 mEq/h de KCl y diferir insulina hasta K+ > 3.3 mEq/L.\n* Si K+ entre 3.3 y 5.3 mEq/L: Iniciar insulina y agregar 20-30 mEq de KCl por litro de suero de mantenimiento para mantener K+ entre 4 y 5 mEq/L.\n* Si K+ > 5.3 mEq/L: Iniciar insulina sin aporte de K+ y rechequear cada 2 horas.\n\n### Paso 3: Insulinoterapia\n* **Insulina corriente regular IV:**\n  * Bolo opcional de 0.1 U/kg seguido de infusión a **0.1 U/kg/hora** (o 0.14 U/kg/h sin bolo).\n  * Meta: Descenso glucémico controlado de **50 a 75 mg/dL por hora**.\n  * Al alcanzar glucemia de ~200 mg/dL: Reducir infusión de insulina a 0.02-0.05 U/kg/h y **agregar Dextrosa 5% a la hidratación** para evitar hipoglucemia mientras se cierra el Anión Gap.\n\n## 3. Criterios de Resolución de la CAD\n* Glucemia < 200 mg/dL Y dos de los siguientes:\n  1. Bicarbonato sérico ≥ 18 mEq/L.\n  2. pH venoso > 7.30.\n  3. Anión Gap normalizado (≤ 12 mEq/L).\n* **Transición a vía subcutánea:** Administrar dosis basal de insulina subcutánea (ej. glargina o NPH) **2 horas antes** de suspender la bomba de infusión para evitar hiperglucemia de rebote.\n\n## 4. Trampas Cognitivas Comunes\n* **Precipitación / Error de Orden:** Pasar insulina rápida antes de verificar el potasio sérico.\n* **Cierre Prematuro:** Suspender la infusión de insulina cuando la glucemia baja a 180 mg/dL aunque el Anión Gap siga abierto (20 mEq/L).\n* **Omisión:** Olvidar pesquisar el factor gatillo infeccioso o isquémico subyacente.\n",
@@ -344,9 +354,6 @@ Los informes generados por la rúbrica de Socrático se exportan en formato Mark
 
 
 # ==================== CONFIGURACION Y ESTILOS ====================
-"""
-config.py - Configuración global y estilos del Simulador de Razonamiento Clínico.
-"""
 from pathlib import Path
 
 # Rutas del proyecto
@@ -443,10 +450,6 @@ CUSTOM_CSS = """
 </style>
 """
 # ==================== CASOS CLINICOS ====================
-"""
-core/cases.py - Banco estructurado de Casos Clínicos en Medicina Interna.
-Cada caso cuenta con metadatos docentes, trampas cognitivas esperadas y calculadoras pertinentes.
-"""
 from typing import Dict, Any
 
 BANCO_CASOS: Dict[str, Dict[str, Any]] = {
@@ -749,10 +752,6 @@ def obtener_nombres_casos() -> list:
 def obtener_caso(nombre: str) -> dict:
     return BANCO_CASOS.get(nombre, {})
 # ==================== CALCULADORAS BIOMEDICAS ====================
-"""
-core/calculators.py - Calculadoras biomédicas rigurosas y validadas para Medicina Interna.
-Implementa CKD-EPI 2021, Anion Gap con albúmina, CURB-65, qSOFA, Wells TEP, HEART y GBS.
-"""
 from typing import Dict, Any, Optional
 
 def calcular_ckd_epi_2021(creatinina: float, edad: int, sexo: str) -> Dict[str, Any]:
@@ -1080,10 +1079,6 @@ def calcular_exacerbacion_epoc(
         "seguridad_oxigeno": alerta_o2
     }
 # ==================== TAXONOMIA DE SESGOS ====================
-"""
-core/biases.py - Taxonomía de Errores Cognitivos y Estrategias de Forzamiento Cognitivo (Debiasing)
-Basado en la taxonomía de Pat Croskerry (Dual Process Theory / Cognitive Errors in Medicine).
-"""
 from typing import Dict, Any, List
 
 TAXONOMIA_SESGOS: Dict[str, Dict[str, Any]] = {
@@ -1189,11 +1184,6 @@ def obtener_detalle_sesgo(nombre: str) -> Dict[str, Any]:
         "estrategia_debiasing": "Pausa reflexiva y consulta con un par clínico."
     })
 # ==================== GUIAS DE ESTUDIO Y MAPAS ====================
-"""
-core/concept_maps.py - Guías de Estudio y Algoritmos Generales de Razonamiento Clínico
-Estructurados por Unidades Temáticas para la Residencia de Clínica Médica del Hospital Heller.
-Proporciona marcos analíticos generales de decisión SIN revelar resoluciones de casos específicos.
-"""
 from typing import Dict, Any, List
 
 GUIAS_TEMATICAS: Dict[str, Dict[str, Any]] = {
@@ -1332,10 +1322,6 @@ MAPAS_CONCEPTUALES = GUIAS_TEMATICAS
 obtener_mapa_conceptual = obtener_guia_tematica
 listar_casos_con_mapas = listar_unidades_tematicas
 # ==================== RUBRICA Y EVALUACION ====================
-"""
-core/evaluation.py - Rúbrica Pedagógica y Modelo de Competencias Clínicas.
-Define las dimensiones formativas de evaluación, niveles de competencia y generador de informes.
-"""
 from typing import Dict, Any, List
 from datetime import datetime
 
@@ -1503,10 +1489,6 @@ def estructurar_informe_portafolio(
 """
     return md
 # ==================== GOBERNANZA Y PHI ====================
-"""
-services/governance.py - Gobernanza de datos, anonimización PHI (Protected Health Information)
-y auditoría académica conforme a estándares de privacidad médica.
-"""
 import re
 import hashlib
 from typing import Tuple, List, Dict, Any
@@ -1610,10 +1592,6 @@ def generar_pase_sbar(
         "texto_markdown": texto_completo
     }
 # ==================== ALMACENAMIENTO Y LOGS ====================
-"""
-services/storage.py - Capa de almacenamiento y persistencia resiliente.
-Soporta persistencia primaria en Google Sheets con fallback y sincronización local en CSV.
-"""
 import pandas as pd
 from typing import Dict, Any, Tuple, Optional
 from pathlib import Path
@@ -1776,10 +1754,6 @@ def leer_leads_preinscripcion() -> pd.DataFrame:
 
 
 # ==================== ORQUESTADOR GEMINI ====================
-"""
-services/gemini_service.py - Motor Socrático con Google GenAI SDK.
-Maneja bucles multiciclo de Function Calling, dispatching de calculadoras y registro de sesgos.
-"""
 import json
 from typing import Dict, Any, List, Tuple, Callable
 from google import genai
@@ -2373,10 +2347,6 @@ def procesar_turno_socratico(
     raise ultimo_error or RuntimeError("No fue posible obtener respuesta del modelo.")
 
 # ==================== TRIBUNAL EVALUADOR ====================
-"""
-services/evaluator_service.py - Servicio de Evaluación y Calificación Docente Automatizada.
-Utiliza Gemini 3.6 para evaluar el desempeño clínico del residente con salida estructurada.
-"""
 import json
 import re
 from typing import Dict, Any, List
@@ -2587,9 +2557,6 @@ def _generar_evaluacion_fallback(error_msg: Exception = None) -> Dict[str, Any]:
         "advertencia": f"Evaluación generada en modo de contingencia docente ({str(error_msg)})." if error_msg else None
     }
 # ==================== APLICACION STREAMLIT ====================
-"""
-app.py - Simulador Socrático de Medicina Interna, Mitigación de Sesgos y Gobernanza de Datos.
-"""
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -2597,12 +2564,6 @@ from datetime import datetime
 
 
 # Configuración de Streamlit
-st.set_page_config(
-    page_title="Simulador de Razonamiento Clínico & Gobernanza",
-    page_icon="🩺",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Inyección de estilos
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
