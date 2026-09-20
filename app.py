@@ -3852,15 +3852,19 @@ with tab_estres:
                     time.sleep(0.5)
                     
                 st.write("⚖️ Convocando al Tribunal Docente para calificar la sesión...")
-                eval_res, err_e = evaluar_desempeno_caso(
-                    api_key=api_k,
-                    modelo_seleccionado=DEFAULT_MODEL,
-                    titulo_caso=caso_estres_info["titulo"],
-                    viñeta_texto=caso_estres_info["viñeta"],
-                    red_flags=caso_estres_info.get("red_flags", []),
-                    sesgos_esperados=caso_estres_info.get("sesgos_esperados", []),
-                    historial_mensajes=historial_sim
-                )
+                eval_res = None
+                try:
+                    eval_res = evaluar_desempeno_caso(
+                        api_key=api_k,
+                        modelo_seleccionado=DEFAULT_MODEL,
+                        titulo_caso=caso_estres_info["titulo"],
+                        viñeta_texto=caso_estres_info["viñeta"],
+                        caso_meta=caso_estres_info,
+                        historial_mensajes=historial_sim,
+                        alumno_id=f"estres_{arquetipo_id}"
+                    )
+                except Exception as e_ev:
+                    st.error(f"Error del Tribunal Evaluador: {str(e_ev)}")
                 status_box.update(label="✅ Simulación de estrés y evaluación completada", state="complete")
                 
             if eval_res:
@@ -3919,15 +3923,19 @@ with tab_estres:
                         
                     duracion_a = round(time.time() - t_inicio_a, 1)
                     
-                    ev_res, _ = evaluar_desempeno_caso(
-                        api_key=api_k,
-                        modelo_seleccionado=DEFAULT_MODEL,
-                        titulo_caso=caso_estres_info["titulo"],
-                        viñeta_texto=caso_estres_info["viñeta"],
-                        red_flags=caso_estres_info.get("red_flags", []),
-                        sesgos_esperados=caso_estres_info.get("sesgos_esperados", []),
-                        historial_mensajes=hist_a
-                    )
+                    ev_res = None
+                    try:
+                        ev_res = evaluar_desempeno_caso(
+                            api_key=api_k,
+                            modelo_seleccionado=DEFAULT_MODEL,
+                            titulo_caso=caso_estres_info["titulo"],
+                            viñeta_texto=caso_estres_info["viñeta"],
+                            caso_meta=caso_estres_info,
+                            historial_mensajes=hist_a,
+                            alumno_id=f"benchmark_{a_id}"
+                        )
+                    except Exception as e_ev:
+                        print(f"Error benchmark: {e_ev}")
                     ptje = ev_res.get("puntaje_global", 0) if ev_res else 0
                     
                     filas_tabla.append({
