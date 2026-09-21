@@ -458,6 +458,225 @@ Al utilizar Socrático, cada residente asume el compromiso de:
 ---
 *Manual aprobado por la Jefatura de Residencia y el Servicio de Clínica Médica — Hospital Dr. Horacio Heller, Neuquén, Argentina.*
 """
+INSTRUCTIVO_TEXT_EMBEDDED = """# Manual e Instructivo de Redacción de Casos Clínicos
+## Simulador Socrático de Medicina Interna & Razonamiento Metacognitivo
+### Residencia de Clínica Médica — Hospital Dr. Horacio Heller (Neuquén, 2026)
+
+---
+
+## 1. Fundamento Pedagógico: Del Caso Pasivo al Desafío Socrático
+
+El aprendizaje tradicional en medicina suele basarse en ateneos retrospectivos donde se presenta un caso ya resuelto con sesgo de resultado (*outcome bias*). 
+
+En el **Simulador Socrático**, el caso no es un relato pasivo sino un **entorno de simulación estocástico y dinámico** impulsado por Inteligencia Artificial de última generación (Gemini 3.6 Flash) asistido por herramientas determinísticas de seguridad.
+
+Para que un caso clínico cumpla su función docente dentro del simulador, debe estar diseñado para:
+1. **Evaluar el Razonamiento Clínico en Tiempo Real:** Obligar al residente a jerarquizar problemas, formular hipótesis diferenciales y solicitar estudios diagnósticos de forma justificada.
+2. **Exponer Sesgos Cognitivos y Trampas Heurísticas:** Contener elementos distractores verosímiles que tienten a cometer errores comunes de la práctica médica (Cierre Prematuro, Anclaje, Sesgo de Disponibilidad, Inercia Diagnóstica).
+3. **Auditar la Seguridad del Paciente (Red Flags):** Contar con criterios estrictos e innegociables para evitar eventos adversos e iatrogenia.
+4. **Anclarse en Evidencia Científica de Máximo Nivel:** Estar respaldado por una Guía de Práctica Clínica (GPC) internacional de acceso libre y gratuito (*Open Access*).
+
+---
+
+## 2. Normativa de Desidentificación y Privacidad de Datos (Ley 25.326)
+
+Todo caso extraído de la práctica asistencial (guardia externa, sala de internación o terapia intensiva del Hospital Heller) **debe someterse a un proceso estricto de desidentificación de Información de Salud Protegida (PHI)** antes de ser cargado al simulador, en cumplimiento con la **Ley Nacional N° 25.326 de Protección de los Datos Personales** y las normas bioéticas de la Declaración de Helsinki.
+
+### 🚫 Elementos Estrictamente Prohibidos (NUNCA incluir):
+* **Nombres y Apellidos:** Ni del paciente ni de familiares ni de médicos intervinientes.
+* **Números de Identificación:** DNI, número de historia clínica (HC), número de afiliado a obra social/PAMI.
+* **Fechas Exactas:** En lugar de *"Ingresó el 14 de marzo de 2026 a las 03:15 hs"*, redactar *"Consulta en horas de la madrugada con cuadro de 4 horas de evolución"*.
+* **Ubicaciones Geográficas Específicas:** Omitir direcciones, barrios particulares o camas del hospital (ej. *"Cama 12 de sala este"*).
+* **Rasgos Físicos No Clínicos:** Tatuajes específicos, nombres de empleadores o detalles biográficos identificables.
+
+### ✅ Elementos Permitidos y Alentados:
+* **Filiación Básica General:** *"Varón de 42 años"*, *"Mujer de 68 años"*.
+* **Ocupación Relevante para la Patología:** *"Trabajador rural en zona endémica de hantavirus"*, *"Pintor industrial con exposición a solventes"*.
+* **Comorbilidades y Medicación:** Diagnósticos previos, dosis y adherencia terapéutica.
+* **Cronología Relativa:** *"Hace 48 horas"*, *"Desde hace 3 semanas de forma insidiosa"*.
+
+> [!IMPORTANT]
+> El módulo docente del simulador cuenta con una función de **Sanitización Automática** basada en expresiones regulares (`services/governance.py`) que enmascara DNI, teléfonos, correos y fechas. No obstante, **la desidentificación humana en la fuente es la primera y más importante barrera de seguridad.**
+
+---
+
+## 3. Los 7 Bloques Pedagógicos del Caso Socrático
+
+Todo caso que se incorpore al **Banco Permanente de Casos** debe completar rigurosamente los siguientes siete bloques:
+
+```mermaid
+graph TD
+    B1[1. Metadatos & Unidad] --> B2[2. Viñeta con 5 Signos Vitales]
+    B2 --> B3[3. Sesgos & Trampas Heurísticas]
+    B3 --> B4[4. Banderas Rojas / Red Flags]
+    B4 --> B5[5. Calculadoras Determinísticas]
+    B5 --> B6[6. GPC Oficial Open Access]
+    B6 --> B7[7. Gold Standard & Tribunal Docente]
+```
+
+### Bloque 1: Metadatos y Filiación del Escenario
+* **Identificador / Clave Única:** Prefijo de caso y síntoma guía. Formato: `Caso XX: [Hallazgo cardinal] en [Edad/Género]`.
+* **Título Descriptivo:** Síntesis orientada al problema (ej. *Mujer de 58 años con cefalea súbita de inicio ictal y fotofobia*).
+* **Unidad Curricular:** Asignar a una de las 4 unidades de la residencia:
+  - *Unidad 1:* Urgencias Cardiovasculares y Reanimación.
+  - *Unidad 2:* Emergencias Respiratorias y Medio Interno.
+  - *Unidad 3:* Paciente Crítico, Sepsis y Falla Multiorgánica.
+  - *Unidad 4:* Desafíos Diagnósticos Complejos y Casos Interdisciplinarios.
+* **Área / Subespecialidad:** Cardiología, Neumonología, Infectología, Nefrología, Neurología, Hematología, Gastroenterología, Toxicología, Endocrinología o Medicina Interna General.
+* **Nivel de Dificultad:** Inicial (R1), Intermedia (R2), Avanzada (R3/R4).
+
+---
+
+### Bloque 2: Viñeta Clínica con Constantes Vitales Completas
+
+> [!CAUTION]
+> **Regla de Oro:** Ningún caso será aprobado si omite cualquiera de las **5 constantes vitales basales** al momento de la consulta. La toma y análisis metódico de signos vitales es el pilar para evitar la desestimación de emergencias graves.
+
+La viñeta debe estructurarse con la siguiente fórmula:
+1. **Presentación:** Paciente [género] de [edad] años con antecedentes de [comorbilidades y medicación habitual].
+2. **Enfermedad Actual:** Motivo de consulta, tiempo de evolución, características semiológicas del síntoma principal y fenómenos acompañantes.
+3. **Constantes Vitales Obligatorias:**
+   - **TA:** Tensión arterial sistólica y diastólica en mmHg (ej. *TA 130/80 mmHg*).
+   - **FC:** Frecuencia cardíaca en latidos por minuto y ritmo (ej. *FC 98 lpm regular*).
+   - **FR:** Frecuencia respiratoria en respiraciones por minuto (ej. *FR 22 rpm*).
+   - **SpO2:** Saturación de pulso de oxígeno indicando fracción inspirada (ej. *SpO2 94% al aire ambiente*).
+   - **Temperatura:** Temperatura axilar o central en grados Celsius (ej. *Temp 38.2 °C*).
+4. **Examen Físico Segmentario:** Estado neurológico/conciencia (Glasgow), aparato cardiovascular, respiratorio, abdomen y hallazgos cutáneos.
+5. **Estudios Iniciales de Guardia (si corresponde):** Electrocardiograma inicial, tira reactiva de orina, glucemia capilar o radiografía de tórax disponible al ingreso.
+
+---
+
+### Bloque 3: Trampas Heurísticas y Sesgos Cognitivos Esperados (Taxonomía de Croskerry)
+
+Seleccionar de 1 a 3 sesgos cognitivos en los que un médico fatigado, apresurado o inexperto podría caer:
+* **Cierre Prematuro:** Dar por cerrado el diagnóstico tras la primera hipótesis compatible sin explorar alternativas letales.
+* **Anclaje y Ajuste Insuficiente:** Quedarse fijado al motivo de consulta del triage o a un antecedente llamativo ignorando datos discordantes posteriores.
+* **Inercia Diagnóstica:** Asumir pasivamente la etiqueta puesta por la guardia previa o la ambulancia sin reexaminar al paciente.
+* **Sesgo de Encuadre:** Dejarse influenciar por cómo fue presentado el paciente (*"Viene de salud mental por crisis de angustia"*).
+* **Búsqueda Satisfecha:** Hallar una patología evidente (ej. infección urinaria leve) y detener la búsqueda pasando por alto un foco bacterémico secundario o endocarditis.
+* **Desestimación de Banderas Rojas:** Minimizar signos sutiles de shock, taquicardia desproporcionada o hipotermia en el anciano.
+
+---
+
+### Bloque 4: Banderas Rojas y Criterios de Seguridad del Paciente (Red Flags)
+
+Definir de 2 a 4 criterios clínicos de seguridad no negociables redactados como directivas claras:
+* Qué patologías tiempo-dependientes deben descartarse prioritariamente.
+* Qué estudios paraclínicos son de solicitud obligatoria antes del alta u observación.
+* Qué conductas terapéuticas empíricas son mandatorias (ej. antibióticos en la primera hora de sepsis, fluidos balanceados, etc.).
+* Qué errores de medicación o iatrogenia no deben cometerse (ej. no dar nitroglicerina en infarto de ventrículo derecho, no corregir sodio a más de 8 mEq/L/24h).
+
+---
+
+### Bloque 5: Calculadoras y Herramientas Clínicas Determinísticas
+
+Vincular al menos una calculadora validada implementada en el simulador para que el sistema audite si el residente la utiliza correctamente:
+* `calculadora_score_heart`: Dolor torácico en urgencias.
+* `calculadora_score_wells_tep`: Sospecha de Tromboembolismo Pulmonar.
+* `calculadora_curb65`: Neumonía adquirida en la comunidad.
+* `calculadora_indice_shock`: Detección precoz de shock hipovolémico/séptico ($FC / TAS \\ge 0.9$).
+* `calculadora_qsofa` / `calculadora_sofa`: Detección y severidad de Sepsis en sala y UTI.
+* `calculadora_apache2`: Pronóstico en paciente crítico.
+* `calculadora_nihss`: Cuantificación de déficit en ACV isquémico agudo.
+* `calculadora_cha2ds2_vasc` / `calculadora_has_bled`: Fibrilación auricular y riesgo de sangrado.
+* `calculadora_filtrado_glomerular_ckd_epi`: Ajuste renal de fármacos.
+* `calculadora_metabolica_cad`: Cetoacidosis diabética y anión gap.
+* `calculadora_child_pugh` / `calculadora_meld`: Insuficiencia hepática y cirrosis.
+* `calculadora_fib4`: Fibrosis hepática no invasiva.
+
+---
+
+### Bloque 6: Guía Clínica Oficial de Referencia (Open Access Gold Standard)
+
+Indicar la guía de consenso internacional de mayor nivel de evidencia científica, verificando:
+1. **Título Completo:** Nombre formal de la guía.
+2. **Sociedad Científica Emisora:** Ej. AHA/ACC, ESC, ATS/IDSA, Surviving Sepsis Campaign, EASL, KDIGO, ESE.
+3. **Enlace Directo Open Access:** Enlace permanente a PubMed Central, DOI o repositorio de la sociedad con acceso libre y gratuito sin paywall.
+
+---
+
+### Bloque 7: Solución Oculta y Criterios para el Tribunal Docente
+
+Redactar en 1-2 párrafos la resolución clínica definitiva que utilizará el Comité Evaluador para contrastar las intervenciones del estudiante:
+* **Diagnóstico Gold Standard:** Entidad patológica definitiva con estadificación o estratificación de riesgo.
+* **Conducta Terapéutica y Destino:** Fármacos de primera línea, estudios confirmatorios reglados, consultas a interconsultores especializados y criterio de internación (Observación, Sala General de Clínica Médica, Unidad de Terapia Intensiva).
+
+---
+
+## 4. Ejemplo Práctico Completo: Caso de Guardia
+
+A continuación se presenta un ejemplo de caso completamente redactado listo para su carga:
+
+```json
+{
+  "Caso 25: Cefalea súbita en trueno e hipertensión severa en mujer de 58 años": {
+    "titulo": "Mujer de 58 años con cefalea súbita de inicio ictal y fotofobia",
+    "area": "Neurología / ACV",
+    "dificultad": "Intermedia",
+    "unidad": "Unidad 4: Desafíos Diagnósticos Complejos y Casos Interdisciplinarios",
+    "viñeta": "Paciente femenina de 58 años con antecedentes de hipertensión arterial tratada irregularmente con enalapril 10 mg/día. Es traída a la guardia de emergencias por cuadro de 3 horas de evolución caracterizado por cefalea holocraneana de inicio súbito, de intensidad 10/10 en escala analógica visual ('el peor dolor de su vida'), iniciada de manera explosiva ('en trueno') durante un esfuerzo físico, asociada a náuseas, vómitos reiterados y fotofobia intensa. Sin traumatismo previo ni fiebre referida en días anteriores. Signos vitales al ingreso: TA 175/100 mmHg, FC 98 lpm regular, FR 18 rpm, SpO2 97% al aire ambiente, Temp 36.8 °C. Examen neurológico inicial: vigil, confusa y desorientada en tiempo (Glasgow 14/15: O4 V4 M6). Rigidez de nuca moderada, signo de Kernig positivo leve, Brudzinski dudoso. Sin parálisis facial, sin asimetría motora en extremidades ni reflejo de Babinski. Fondo de ojo sin edema de papila evidente.",
+    "sesgos_esperados": [
+      "Cierre Prematuro",
+      "Anclaje y Ajuste Insuficiente"
+    ],
+    "red_flags": [
+      "Descartar Hemorragia Subaracnoidea (HSA) aguda en toda cefalea súbita o en trueno (sensibilidad de TC sin contraste >95% en las primeras 6h).",
+      "Si la TC de cráneo es rigurosamente normal dentro de las primeras 6-12h y persiste alta sospecha clínica, realizar Punción Lumbar obligatoria para evaluar xantocromía espectrofotométrica o hematíes constantes en los 3 tubos.",
+      "Evitar catalogar como 'cefalea tensional' o 'crisis hipertensiva reactiva' (Cierre Prematuro potencialmente mortal).",
+      "Priorizar estabilización hemodinámica (TAS objetivo < 160 mmHg con labetalol IV) y profilaxis precoz de vasoespasmo con Nimodipina."
+    ],
+    "calculadoras_pertinentes": [
+      "calculadora_nihss"
+    ],
+    "guia_oficial_titulo": "Guía AHA/ASA: Manejo de Pacientes con Hemorragia Subaracnoidea Aneurismática",
+    "guia_oficial_sociedad": "AHA / ASA (Stroke)",
+    "guia_oficial_url": "https://www.ahajournals.org/doi/10.1161/STR.0000000000000436",
+    "gold_standard": "Diagnóstico Definitivo: Hemorragia Subaracnoidea Aneurismática (Escala Hunt y Hess Grado II, Fisher Grado 3). Manejo Estándar Esperado: TC urgente de encéfalo sin contraste en <1h. Control de tensión arterial con infusión de labetalol (objetivo TAS 140-160 mmHg). Inicio inmediato de Nimodipina oral 60 mg cada 4 horas. Consulta urgente a Neurocirugía y Neurorradiología Intervencionista para Angio-TC / Panangiografía cerebral y exclusión del aneurisma (coiling vs clipado en las primeras 24-48 horas). Reposo absoluto en cabecera a 30°, analgesia reglada y prevención de convulsiones."
+  }
+}
+```
+
+---
+
+## 5. Instrucciones para la Carga en el Simulador Socrático
+
+Para registrar un nuevo caso en la plataforma:
+
+1. Ingrese a la aplicación web: `http://localhost:8501` (o la URL institucional desplegada).
+2. En la barra lateral izquierda, despliegue la sección **"🔒 Acceso Docente / Jefatura"**.
+3. Ingrese la clave maestra: `heller2026` (o agregue `?docente=heller2026` a la URL del navegador).
+4. En el panel superior de pestañas, seleccione la **Pestaña 7: ➕ Creador & Banco de Casos**.
+5. Complete los campos del formulario asistido:
+   * Puede utilizar los valores sugeridos por defecto como guía interactiva.
+   * Marque la casilla **"🛡️ Anonimizar y Sanitizar Automáticamente"** para una doble verificación de desidentificación.
+6. Haga clic en **"👁️ Previsualizar Viñeta Clínica"** para verificar cómo se renderizará el caso para el residente.
+7. Haga clic en el botón principal: **"💾 Guardar Caso en Banco Permanente"**.
+8. **Confirmación Inmediata:** El sistema registrará el caso en `data/casos_personalizados.json`. A partir de ese instante:
+   * El caso aparece en el menú desplegable principal de selección de casos.
+   * Cualquier residente puede comenzar la simulación socrática de inmediato.
+   * En la subpestaña **"📚 Banco de Casos Guardados"** se puede consultar, probar o eliminar el caso, así como exportar todo el catálogo en formato JSON.
+
+---
+
+## 6. Rúbrica de Aprobación Docente de Casos Clínicos
+
+Antes de incorporar un caso elaborado por residentes a los ateneos del servicio, el Comité de Docencia e Investigación aplicará la siguiente rúbrica de control de calidad:
+
+| Criterio Pedagógico | Requisito Excluyente | Ponderación |
+| :--- | :--- | :---: |
+| **Desidentificación (Ley 25.326)** | Cero datos personales sensibles (nombres, DNI, fechas exactas, HC). | **Excluyente (Apto/No Apto)** |
+| **Constantes Vitales** | Presencia explícita y precisa de TA, FC, FR, SpO2 y Temperatura. | **Excluyente (Apto/No Apto)** |
+| **Complejidad Cognitiva** | Planteo claro de al menos un sesgo cognitivo verosímil y trampa de guardia. | 25% |
+| **Seguridad del Paciente** | Mínimo 2 Banderas Rojas redactadas con criterios de acción preventivos. | 25% |
+| **Herramientas Clínicas** | Asociación a por lo menos 1 calculadora clínica validada del simulador. | 20% |
+| **Evidencia Científica** | Guía de Práctica Clínica oficial internacional con enlace libre Open Access. | 20% |
+| **Claridad de Redacción** | Sintaxis médica rigurosa, signos de puntuación y redacción orientada a problemas. | 10% |
+
+---
+
+*Hospital Dr. Horacio Heller — Dirección de Docencia e Investigación — Servicio de Clínica Médica*  
+*Neuquén, Patagonia Argentina — 2026*
+"""
 
 
 # ==================== CONFIGURACION Y ESTILOS ====================
@@ -3605,9 +3824,30 @@ with st.sidebar:
             reiniciar_caso(nombre_sel, info_c["titulo"], info_c["viñeta"], info_c)
             st.rerun()
     else:
-        st.markdown("#### 📝 Carga Segura de Caso")
+        st.markdown("#### 📝 Carga Rápida de Caso (Práctica)")
+        with st.expander("❓ ¿Cómo redactar tu viñeta? (Requisitos)", expanded=False):
+            st.markdown("""
+            **Estructura obligatoria para que Socrático evalúe tu razonamiento:**
+            1. **Filiación:** Edad, sexo, comorbilidades y medicación habitual (sin nombres ni DNI).
+            2. **Cuadro actual:** Motivo de consulta, tiempo de inicio y cronología.
+            3. **5 Constantes Vitales completas:**
+               * TA (mmHg)
+               * FC (lpm y ritmo)
+               * FR (rpm)
+               * SpO2 (% y FiO2)
+               * Temp (°C)
+            4. **Examen físico:** Hallazgos cardiovasculares, respiratorios, neurológicos o cutáneos.
+            
+            *💡 Si eres docente y deseas que el caso quede guardado permanentemente en el banco para todos los residentes, créalo desde la Pestaña 7: ➕ Creador & Banco de Casos.*
+            """)
         custom_titulo = st.text_input("Título del caso:", value="Paciente con cuadro a filiar")
-        custom_texto = st.text_area("Viñeta clínica (incluya antecedentes, examen y signos vitales):", height=150)
+        plantilla_sidebar = (
+            "Paciente varón/mujer de 55 años con antecedentes de [comorbilidades y medicación habitual]. "
+            "Consulta en la guardia de emergencias por cuadro de 6 horas de evolución caracterizado por [síntomas cardinales y cronología]. "
+            "Signos vitales al ingreso: TA 125/80 mmHg, FC 88 lpm regular, FR 18 rpm, SpO2 96% al aire ambiente, Temp 37.1 °C. "
+            "Examen físico al ingreso: vigil, orientado en tiempo y espacio, sin foco neurológico, ruidos cardíacos normofonéticos, buena mecánica ventilatoria sin ruidos agregados."
+        )
+        custom_texto = st.text_area("Viñeta clínica (incluya antecedentes, examen y signos vitales):", value=plantilla_sidebar, height=150)
         
         col_c1, col_c2 = st.columns(2)
         with col_c1:
@@ -4277,6 +4517,38 @@ with tab_programa:
                 use_container_width=True
             )
             
+        # Descarga del Instructivo Oficial de Redacción de Casos Clínicos
+        instructivo_p = BASE_DIR / "INSTRUCTIVO_REDACCION_CASOS_CLINICOS.md"
+        data_inst = instructivo_p.read_text(encoding="utf-8") if instructivo_p.exists() else INSTRUCTIVO_TEXT_EMBEDDED if instructivo_p.exists() else "# Instructivo Oficial de Redacción de Casos Clínicos - Hospital Heller 2026"
+        st.download_button(
+            label="📋 Descargar Instructivo de Redacción de Casos (.md)",
+            data=data_inst,
+            file_name="Instructivo_Redaccion_Casos_Clinicos_Socratico.md",
+            mime="text/markdown",
+            key="btn_descarga_instructivo_tab4",
+            use_container_width=True
+        )
+
+        with st.expander("📝 Instructivo Oficial: Cómo redactar un caso clínico desde cero (Estándar de 7 Bloques)", expanded=False):
+            st.markdown("""
+            Para que los casos de guardia de los residentes puedan ser discutidos en el ateneo y cargados al simulador, deben cumplir con los **7 Bloques Pedagógicos de Socrático**:
+            
+            1. **Filiación & Contexto:** Identificador, título, unidad curricular y dificultad (R1, R2, R3/R4).
+            2. **Desidentificación Estricta (Ley 25.326):** Prohibido incluir nombres, DNI, cama, o fechas exactas. Solo edad, sexo y cronología relativa.
+            3. **Las 5 Constantes Vitales Completas (Obligatorio):**
+               * **TA** (Tensión Arterial en mmHg)
+               * **FC** (Frecuencia Cardíaca en lpm)
+               * **FR** (Frecuencia Respiratoria en rpm)
+               * **SpO2** (Saturación de oxígeno por oximetría de pulso y fracción inspirada)
+               * **Temperatura** (°C axilar/central)
+            4. **Trampa Heurística / Sesgo Esperado:** Croskerry (*Cierre Prematuro*, *Anclaje*, *Inercia Diagnóstica*, etc.).
+            5. **Banderas Rojas (Patient Safety):** Alertas clínicas no negociables para evitar muertes o iatrogenia.
+            6. **Calculadoras Clínicas Vinculadas:** Algoritmos validados (HEART, Wells, CURB-65, Shock Index, NIHSS, SOFA).
+            7. **Guía de Práctica Clínica Oficial Open Access:** Enlace permanente libre y gratuito a la última guía de consenso.
+            
+            *📌 Los instructores y jefes de servicio disponen de la Pestaña 7: ➕ Creador & Banco de Casos (Modo Docente) para registrar los casos de forma permanente en el simulador.*
+            """)
+
         st.info(
             "🔒 **Material de Debriefing & Fichas de Bolsillo:**\n\n"
             "Las diapositivas y fichas de bolsillo de cada caso son entregadas **exclusivamente por el docente al finalizar el ateneo clínico quincenal** en el Hospital Heller, para preservar la metodología de simulación ciega (\"a ciegas\") sin sesgos previos."
