@@ -894,6 +894,46 @@ CUSTOM_CSS = """
         color: #64748b;
         font-weight: 600;
     }
+    .clinical-ribbon {
+        background: linear-gradient(135deg, #0b132b 0%, #1c2541 100%);
+        border: 1px solid #3a506b;
+        border-radius: 8px;
+        padding: 8px 14px;
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        color: #f8fafc;
+        font-size: 0.86rem;
+    }
+    .ribbon-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .ribbon-val {
+        font-family: 'Courier New', Courier, monospace;
+        font-weight: 700;
+        color: #38bdf8;
+    }
+    .ribbon-badge {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+    .ribbon-cost {
+        background: rgba(2, 132, 199, 0.2);
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        padding: 3px 10px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        color: #bae6fd;
+    }
 </style>
 """
 # ==================== CASOS CLINICOS ====================
@@ -3543,7 +3583,10 @@ def avanzar_tiempo_reloj(
 
     etapas = curva["etapas"]
     nueva_etapa_idx = 0
-    if min_totales >= 56:
+    # En casos no urgentes de sala general o ambulatorios, el paciente se mantiene estable
+    if not curva.get("es_urgencia", False):
+        nueva_etapa_idx = 0
+    elif min_totales >= 56:
         nueva_etapa_idx = 3
     elif min_totales >= 36:
         nueva_etapa_idx = 2
@@ -5591,7 +5634,7 @@ INSTRUCCIÓN SOCRÁTICA PARA EL TUTOR RESPECTO A LA DOCTRINA LOCAL:
 """
 
     seccion_escalamiento = generar_bloque_prompt_escalamiento(estado_escalamiento) if estado_escalamiento else ""
-    seccion_recursos = generar_bloque_prompt_recursos(estado_recursos) if estado_recursos else ""
+    seccion_recursos = ""
 
     return f"""
 Eres un Comité Médico Evaluador y Docente Socrático de Medicina Interna de máximo rigor académico.
@@ -6677,7 +6720,8 @@ with tab_simulador:
                 )
 
     # =========================================================
-    # PILAR 3: MONITOR DE GUARDIA & ESCALAMIENTO DINÁMICO EN VIVO
+    # =========================================================
+    # CINTA CLÍNICA COMPACTA: SIGNOS VITALES & TIEMPO EN GUARDIA
     # =========================================================
     esc_actual = st.session_state.get("estado_escalamiento", {})
     if not esc_actual:
@@ -6693,239 +6737,62 @@ with tab_simulador:
     estabilizado = esc_actual.get("estabilizado", False)
     es_urgente = esc_actual.get("es_urgencia", False)
 
-    # Determinación de colores del monitor hemodinámico
+    # Badges compactos
     if estabilizado:
         badge_bg = "#10b981"
-        badge_txt = "🛡️ ESTABILIZADO"
+        badge_txt = "🛡️ REANIMADO"
     elif estado_h == ESTADO_COMPENSADO:
-        badge_bg = "#22c55e"
-        badge_txt = "🟢 COMPENSADO"
+        badge_bg = "#16a34a"
+        badge_txt = "🟢 ESTABLE"
     elif estado_h == ESTADO_DETERIORO_LEVE:
-        badge_bg = "#eab308"
+        badge_bg = "#d97706"
         badge_txt = "🟡 DETERIORO LEVE"
     elif estado_h == ESTADO_SHOCK_DESCOMPENSADO:
-        badge_bg = "#ef4444"
-        badge_txt = "🟠 SHOCK DESCOMPENSADO"
+        badge_bg = "#dc2626"
+        badge_txt = "🟠 SHOCK"
     else:
         badge_bg = "#7f1d1d"
-        badge_txt = "🚨 COLAPSO INMINENTE"
+        badge_txt = "🚨 COLAPSO"
 
-    val_color = "#34d399" if (estabilizado or estado_h == ESTADO_COMPENSADO) else ("#facc15" if estado_h == ESTADO_DETERIORO_LEVE else "#f87171")
+    val_color = "#38bdf8" if (estabilizado or estado_h == ESTADO_COMPENSADO) else ("#facc15" if estado_h == ESTADO_DETERIORO_LEVE else "#f87171")
 
+    # Cinta clínica estilizada de una sola línea: Signos Vitales y Tiempo de Guardia
     st.markdown(f"""
-        <div class="icu-monitor">
-            <div class="icu-header">
-                <div>
-                    <span class="icu-title">🚨 MONITOR DE GUARDIA & DETERIORO FISIOLÓGICO</span>
-                    <span style="font-size: 0.78rem; color: #94a3b8; margin-left: 8px;">(Fisiología en Tiempo Real)</span>
-                </div>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <span class="icu-clock">⏱️ Tiempo en Guardia: {min_t} min</span>
-                    <span style="background-color: {badge_bg}; color: white; padding: 4px 10px; border-radius: 4px; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.5px;">
-                        {badge_txt}
-                    </span>
-                </div>
+        <div class="clinical-ribbon">
+            <div class="ribbon-item">
+                <span>🩺</span>
+                <span><strong>TA:</strong> <span class="ribbon-val" style="color: {val_color};">{sv.get('ta', 'N/A')}</span></span>
+                <span>• <strong>FC:</strong> <span class="ribbon-val" style="color: {val_color};">{sv.get('fc', 'N/A')} <small style="font-size:0.75rem;">lpm</small></span></span>
+                <span>• <strong>SpO2:</strong> <span class="ribbon-val" style="color: {val_color};">{sv.get('spo2', 'N/A')}</span></span>
+                <span>• <strong>Diuresis:</strong> <span class="ribbon-val" style="color: #cbd5e1;">{sv.get('diuresis', 'N/A')}</span></span>
             </div>
-            <div class="icu-vitals-grid">
-                <div class="icu-vital-card">
-                    <div class="icu-val-crit" style="color: {val_color};">{sv.get('ta', 'N/A')}</div>
-                    <div class="icu-lbl-crit">Presión Arterial</div>
-                </div>
-                <div class="icu-vital-card">
-                    <div class="icu-val-crit" style="color: {val_color};">{sv.get('fc', 'N/A')} <span style="font-size:0.8rem">lpm</span></div>
-                    <div class="icu-lbl-crit">Frecuencia Cardíaca</div>
-                </div>
-                <div class="icu-vital-card">
-                    <div class="icu-val-crit" style="color: {val_color};">{sv.get('fr', 'N/A')} <span style="font-size:0.8rem">rpm</span></div>
-                    <div class="icu-lbl-crit">Frec. Respiratoria</div>
-                </div>
-                <div class="icu-vital-card">
-                    <div class="icu-val-crit" style="color: {val_color};">{sv.get('spo2', 'N/A')}</div>
-                    <div class="icu-lbl-crit">Saturación O2</div>
-                </div>
-                <div class="icu-vital-card">
-                    <div class="icu-val-crit" style="color: #67e8f9;">{sv.get('biomarcador_valor', 'N/A')} <span style="font-size:0.75rem">{sv.get('biomarcador_unidad', '')}</span></div>
-                    <div class="icu-lbl-crit">{sv.get('biomarcador_nombre', 'Marcador')}</div>
-                </div>
-                <div class="icu-vital-card">
-                    <div class="icu-val-crit" style="color: #cbd5e1; font-size: 1.05rem;">{sv.get('diuresis', 'N/A')}</div>
-                    <div class="icu-lbl-crit">Diuresis Horaria</div>
-                </div>
-            </div>
-            <div style="margin-top: 8px; font-size: 0.82rem; color: #cbd5e1; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; border-top: 1px dashed #3a506b; padding-top: 6px;">
-                <span>🧠 <strong>Sensorio:</strong> {sv.get('sensorio', 'N/A')}</span>
-                <span>🩺 <strong>Perfusión:</strong> {sv.get('perfusion', 'N/A')}</span>
+            <div class="ribbon-item">
+                <span style="font-size: 0.8rem; color: #94a3b8;">⏱️ Guardia: <strong style="color: #f1f5f9;">{min_t} min</strong></span>
+                <span class="ribbon-badge" style="background-color: {badge_bg}; color: white;">{badge_txt}</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
+    # Alerta médica activa únicamente si hay descompensación en urgencias
     alerta_actual = esc_actual.get("ultima_alerta_enfermeria")
-    if alerta_actual:
-        if estabilizado:
-            st.success(alerta_actual)
-        elif estado_h in [ESTADO_SHOCK_DESCOMPENSADO, ESTADO_COLAPSO_INMINENTE]:
-            st.error(alerta_actual)
+    if alerta_actual and not estabilizado and es_urgente and estado_h != ESTADO_COMPENSADO:
+        if estado_h in [ESTADO_SHOCK_DESCOMPENSADO, ESTADO_COLAPSO_INMINENTE]:
+            st.error(f"🚨 {alerta_actual}")
         else:
-            st.warning(alerta_actual)
+            st.warning(f"⚠️ {alerta_actual}")
 
-    with st.expander("⚡ Maniobras Rápidas de Soporte Vital & Reanimación en Guardia (1 Clic)", expanded=not estabilizado and es_urgente):
-        st.markdown(
-            "<span style='font-size: 0.85rem; color: #475569;'>Si el paciente muestra signos de shock o descompensación, ejecute una maniobra de reanimación oportuna para estabilizar la curva antes de que colapse:</span>",
-            unsafe_allow_html=True
-        )
-        col_res1, col_res2, col_res3, col_res4, col_res5 = st.columns(5)
-        with col_res1:
-            if st.button("💧 Cristaloides 1000cc", width="stretch", key="btn_res_cristaloides", disabled=estabilizado):
-                _, msg_res, st.session_state.estado_escalamiento = verificar_maniobra_resucitadora(st.session_state.estado_escalamiento, "cristaloides ringer fisiologico expansion")
-                guardar_evento_escalamiento({
-                    "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ID_Estudiante": st.session_state.alumno_id,
-                    "Caso_Clinico": st.session_state.caso_activo_titulo,
-                    "Tiempo_Transcurrido_Min": st.session_state.estado_escalamiento.get("tiempo_transcurrido_min", 0),
-                    "Tiempo_Resucitacion_Min": st.session_state.estado_escalamiento.get("tiempo_resucitacion_min", 0),
-                    "Estado_Hemodinamico_Final": st.session_state.estado_escalamiento.get("estado_hemodinamico", ""),
-                    "Estabilizado": "Sí",
-                    "Nivel_Maximo_Deterioro": st.session_state.estado_escalamiento.get("etapa_fisiologica_idx", 0),
-                    "Maniobras_Ejecutadas": "Carga de Cristaloides 1000 cc",
-                    "Alertas_Disparadas": len(st.session_state.estado_escalamiento.get("alertas_emitidas", []))
-                })
-                st.session_state.prompt_pendiente = "Indico de urgencia expansión con 1000 ml de cristaloides (Ringer Lactato / Fisiológico) a pasar en 30 minutos y reevaluación hemodinámica continua."
-                st.rerun()
-        with col_res2:
-            if st.button("💉 Noradrenalina EV", width="stretch", key="btn_res_noradrenalina", disabled=estabilizado):
-                _, msg_res, st.session_state.estado_escalamiento = verificar_maniobra_resucitadora(st.session_state.estado_escalamiento, "noradrenalina vasopresor bomba")
-                guardar_evento_escalamiento({
-                    "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ID_Estudiante": st.session_state.alumno_id,
-                    "Caso_Clinico": st.session_state.caso_activo_titulo,
-                    "Tiempo_Transcurrido_Min": st.session_state.estado_escalamiento.get("tiempo_transcurrido_min", 0),
-                    "Tiempo_Resucitacion_Min": st.session_state.estado_escalamiento.get("tiempo_resucitacion_min", 0),
-                    "Estado_Hemodinamico_Final": st.session_state.estado_escalamiento.get("estado_hemodinamico", ""),
-                    "Estabilizado": "Sí",
-                    "Nivel_Maximo_Deterioro": st.session_state.estado_escalamiento.get("etapa_fisiologica_idx", 0),
-                    "Maniobras_Ejecutadas": "Inicio de Noradrenalina",
-                    "Alertas_Disparadas": len(st.session_state.estado_escalamiento.get("alertas_emitidas", []))
-                })
-                st.session_state.prompt_pendiente = "Inicio infusión de Noradrenalina por bomba de infusión continua titulada para mantener PAM >= 65 mmHg."
-                st.rerun()
-        with col_res3:
-            if st.button("🫁 Soporte VNI / O2", width="stretch", key="btn_res_vni", disabled=estabilizado):
-                _, msg_res, st.session_state.estado_escalamiento = verificar_maniobra_resucitadora(st.session_state.estado_escalamiento, "vni cpap bipap oxigeno alto flujo")
-                guardar_evento_escalamiento({
-                    "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ID_Estudiante": st.session_state.alumno_id,
-                    "Caso_Clinico": st.session_state.caso_activo_titulo,
-                    "Tiempo_Transcurrido_Min": st.session_state.estado_escalamiento.get("tiempo_transcurrido_min", 0),
-                    "Tiempo_Resucitacion_Min": st.session_state.estado_escalamiento.get("tiempo_resucitacion_min", 0),
-                    "Estado_Hemodinamico_Final": st.session_state.estado_escalamiento.get("estado_hemodinamico", ""),
-                    "Estabilizado": "Sí",
-                    "Nivel_Maximo_Deterioro": st.session_state.estado_escalamiento.get("etapa_fisiologica_idx", 0),
-                    "Maniobras_Ejecutadas": "Soporte Ventilatorio VNI / O2",
-                    "Alertas_Disparadas": len(st.session_state.estado_escalamiento.get("alertas_emitidas", []))
-                })
-                st.session_state.prompt_pendiente = "Conecto de urgencia a Ventilación No Invasiva (CPAP/BiPAP) con O2 suplementario para titulación de SpO2 y alivio de fatiga respiratoria."
-                st.rerun()
-        with col_res4:
-            if st.button("⚡ Calcio EV / Rescate", width="stretch", key="btn_res_calcio", disabled=estabilizado):
-                _, msg_res, st.session_state.estado_escalamiento = verificar_maniobra_resucitadora(st.session_state.estado_escalamiento, "gluconato de calcio calcio ev insulina glucosa salbutamol")
-                guardar_evento_escalamiento({
-                    "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ID_Estudiante": st.session_state.alumno_id,
-                    "Caso_Clinico": st.session_state.caso_activo_titulo,
-                    "Tiempo_Transcurrido_Min": st.session_state.estado_escalamiento.get("tiempo_transcurrido_min", 0),
-                    "Tiempo_Resucitacion_Min": st.session_state.estado_escalamiento.get("tiempo_resucitacion_min", 0),
-                    "Estado_Hemodinamico_Final": st.session_state.estado_escalamiento.get("estado_hemodinamico", ""),
-                    "Estabilizado": "Sí",
-                    "Nivel_Maximo_Deterioro": st.session_state.estado_escalamiento.get("etapa_fisiologica_idx", 0),
-                    "Maniobras_Ejecutadas": "Gluconato de Calcio EV / Fármacos Rescate",
-                    "Alertas_Disparadas": len(st.session_state.estado_escalamiento.get("alertas_emitidas", []))
-                })
-                st.session_state.prompt_pendiente = "Administro 1 ampolla de Gluconato de Calcio al 10% EV en 3 minutos para estabilización miocárdica e inicio medidas de desplazamiento intracelular."
-                st.rerun()
-        with col_res5:
-            if st.button("🩸 Hemoderivados / Vías", width="stretch", key="btn_res_sangre", disabled=estabilizado):
-                _, msg_res, st.session_state.estado_escalamiento = verificar_maniobra_resucitadora(st.session_state.estado_escalamiento, "dos vias calibre 14 transfusion globulos rojos sangre")
-                guardar_evento_escalamiento({
-                    "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ID_Estudiante": st.session_state.alumno_id,
-                    "Caso_Clinico": st.session_state.caso_activo_titulo,
-                    "Tiempo_Transcurrido_Min": st.session_state.estado_escalamiento.get("tiempo_transcurrido_min", 0),
-                    "Tiempo_Resucitacion_Min": st.session_state.estado_escalamiento.get("tiempo_resucitacion_min", 0),
-                    "Estado_Hemodinamico_Final": st.session_state.estado_escalamiento.get("estado_hemodinamico", ""),
-                    "Estabilizado": "Sí",
-                    "Nivel_Maximo_Deterioro": st.session_state.estado_escalamiento.get("etapa_fisiologica_idx", 0),
-                    "Maniobras_Ejecutadas": "Accesos Venosos Gruesos & Transfusión",
-                    "Alertas_Disparadas": len(st.session_state.estado_escalamiento.get("alertas_emitidas", []))
-                })
-                st.session_state.prompt_pendiente = "Coloco dos accesos venosos periféricos de gran calibre (14-16G), solicito 2 unidades de concentrado de glóbulos rojos compatibilizados e inicio expansión vigorosa."
-                st.rerun()
-
-    # =========================================================
-    # PILAR 4: MONITOR DE COSTO-EFECTIVIDAD & CHOOSING WISELY
-    # =========================================================
-    rec_actual = st.session_state.get("estado_recursos", {})
-    if not rec_actual:
-        rec_actual = inicializar_estado_recursos()
-        st.session_state.estado_recursos = rec_actual
-
-    costo_ars = rec_actual.get("costo_total_ars", 0)
-    rad_msv = rec_actual.get("radiacion_total_msv", 0.0)
-    score_rur = rec_actual.get("score_rur", 100)
-    cat_rur = rec_actual.get("categoria_rur", "🟢 High-Value Care (Uso Racional)")
-    color_rur = rec_actual.get("color_rur", "#22c55e")
-    estudios_list = rec_actual.get("estudios_solicitados", [])
-    alertas_cw = rec_actual.get("alertas_choosing_wisely", [])
-
-    st.markdown(f"""
-        <div class="resource-monitor">
-            <div class="resource-header">
-                <div>
-                    <span class="resource-title">💰 HUELLA DE RECURSOS & MEDICINA DE ALTO VALOR</span>
-                    <span style="font-size: 0.76rem; color: #64748b; margin-left: 6px;">(Choosing Wisely & Insumos Hospital Heller)</span>
-                </div>
-                <div>
-                    <span style="background-color: {color_rur}; color: white; padding: 3px 10px; border-radius: 4px; font-weight: 700; font-size: 0.78rem;">
-                        RUR: {score_rur}/100 • {cat_rur}
-                    </span>
-                </div>
-            </div>
-            <div class="resource-grid">
-                <div class="resource-box">
-                    <div class="resource-val">${costo_ars:,.0f}</div>
-                    <div class="resource-lbl">Gasto Insumos (ARS)</div>
-                </div>
-                <div class="resource-box">
-                    <div class="resource-val" style="color: {'#e11d48' if rad_msv > 5.0 else '#0f172a'};">{rad_msv} <span style="font-size:0.75rem">mSv</span></div>
-                    <div class="resource-lbl">Radiación Médica</div>
-                </div>
-                <div class="resource-box">
-                    <div class="resource-val">{len(estudios_list)}</div>
-                    <div class="resource-lbl">Estudios Solicitados</div>
-                </div>
-                <div class="resource-box">
-                    <div class="resource-val" style="color: {'#e11d48' if alertas_cw else '#16a34a'};">{len(alertas_cw)}</div>
-                    <div class="resource-lbl">Alertas Defensivas</div>
-                </div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    if alertas_cw:
-        with st.expander(f"⚠️ Alertas Choosing Wisely Activas ({len(alertas_cw)} práctica(s) de bajo valor)", expanded=True):
-            for a in alertas_cw:
-                st.markdown(
-                    f"<div style='padding: 8px 12px; background: #fff1f2; border-left: 4px solid #e11d48; border-radius: 4px; margin-bottom: 8px;'>"
-                    f"<strong style='color: #9f1239;'>🛡️ {a.get('codigo', 'CW')}: {a.get('titulo')}</strong><br>"
-                    f"<span style='color: #475569; font-size: 0.85rem;'>{a.get('fundamento')}</span>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
-
-    if estudios_list:
-        with st.expander(f"📋 Desglose de Estudios Solicitados ({len(estudios_list)})", expanded=False):
-            df_est_dsp = pd.DataFrame(estudios_list)[["nombre", "categoria", "costo_ars", "radiacion_msv", "turno_min"]]
-            df_est_dsp.columns = ["Estudio / Práctica", "Categoría", "Arancel (ARS)", "Dosis (mSv)", "Hora"]
-            st.dataframe(df_est_dsp, use_container_width=True, hide_index=True)
+    # Expander colapsado bajo demanda para quien quiera ver detalles sin ensuciar la pantalla
+    with st.expander("📋 Ver parámetros vitales detallados (FR, sensorio, perfusión)", expanded=False):
+        col_exp1, col_exp2 = st.columns(2)
+        with col_exp1:
+            st.markdown("##### 🫀 Parámetros Fisiológicos")
+            st.markdown(f"• **Frecuencia Respiratoria:** {sv.get('fr', 'N/A')} rpm")
+            st.markdown(f"• **Biomarcador Guía:** {sv.get('biomarcador_valor', 'N/A')} {sv.get('biomarcador_unidad', '')} *({sv.get('biomarcador_nombre', 'Marcador')})*")
+        with col_exp2:
+            st.markdown("##### 🩺 Examen Clínico de Guardia")
+            st.markdown(f"• **Estado del Sensorio:** {sv.get('sensorio', 'N/A')}")
+            st.markdown(f"• **Estado de Perfusión:** {sv.get('perfusion', 'N/A')}")
+            st.caption("ℹ️ *Si el paciente se descompensa en guardia, indique su conducta de reanimación (cristaloides, vasopresores, O2, etc.) directamente en el chat para estabilizarlo.*")
 
     # Indicador de estado si falta la API Key
     if not gemini_api_key:
@@ -7120,20 +6987,6 @@ with tab_simulador:
                             "Conclusion_Docente": res_eval.get("conclusion_docente", "")
                         }
                         guardar_registro_evaluacion(row_ev)
-                        if "estado_recursos" in st.session_state and st.session_state.estado_recursos:
-                            rec_final = st.session_state.estado_recursos
-                            guardar_evento_costo_efectividad({
-                                "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                                "ID_Estudiante": st.session_state.alumno_id,
-                                "Caso_Clinico": st.session_state.caso_activo_titulo,
-                                "Costo_Total_ARS": rec_final.get("costo_total_ars", 0),
-                                "Radiacion_Total_mSv": rec_final.get("radiacion_total_msv", 0.0),
-                                "Score_RUR": rec_final.get("score_rur", 100),
-                                "Categoria_RUR": rec_final.get("categoria_rur", ""),
-                                "Cantidad_Estudios": len(rec_final.get("estudios_solicitados", [])),
-                                "Alertas_Choosing_Wisely": "; ".join([a.get("codigo", "") for a in rec_final.get("alertas_choosing_wisely", [])]),
-                                "Estudios_Detalle": ", ".join([e.get("nombre", "") for e in rec_final.get("estudios_solicitados", [])])
-                            })
                         st.success("✅ ¡Evaluación colegiada completada y registrada en el legajo docente!")
                     except Exception as e_ev:
                         st.error(f"Error al generar la evaluación: {str(e_ev)}")
@@ -7327,7 +7180,7 @@ with tab_simulador:
                 })
 
             es_estudio_lento, min_extra, desc_estudio = detectar_estudio_demorado(prompt_final)
-            minutos_avance = min_extra if es_estudio_lento else 12
+            minutos_avance = min_extra if es_estudio_lento else 3
 
             st.session_state.estado_escalamiento = avanzar_tiempo_reloj(
                 st.session_state.estado_escalamiento,
@@ -7335,29 +7188,7 @@ with tab_simulador:
                 motivo=desc_estudio if es_estudio_lento else "Turno de razonamiento clínico"
             )
 
-            # --- PILAR 4: AUDITORÍA DE COSTO-EFECTIVIDAD & CHOOSING WISELY ---
-            if "estado_recursos" not in st.session_state or not st.session_state.estado_recursos:
-                st.session_state.estado_recursos = inicializar_estado_recursos()
-
-            nuevos_est, c_agregado, rad_agregada, nuevas_al_cw, st.session_state.estado_recursos = auditar_consumo_recursos(
-                texto_usuario=prompt_final,
-                caso_titulo=st.session_state.caso_activo_titulo,
-                estado_recursos=st.session_state.estado_recursos
-            )
-            if nuevos_est or nuevas_al_cw:
-                guardar_evento_costo_efectividad({
-                    "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ID_Estudiante": st.session_state.alumno_id,
-                    "Caso_Clinico": st.session_state.caso_activo_titulo,
-                    "Costo_Total_ARS": st.session_state.estado_recursos.get("costo_total_ars", 0),
-                    "Radiacion_Total_mSv": st.session_state.estado_recursos.get("radiacion_total_msv", 0.0),
-                    "Score_RUR": st.session_state.estado_recursos.get("score_rur", 100),
-                    "Categoria_RUR": st.session_state.estado_recursos.get("categoria_rur", ""),
-                    "Cantidad_Estudios": len(st.session_state.estado_recursos.get("estudios_solicitados", [])),
-                    "Alertas_Choosing_Wisely": "; ".join([a.get("codigo", "") for a in st.session_state.estado_recursos.get("alertas_choosing_wisely", [])]),
-                    "Estudios_Detalle": ", ".join([e.get("nombre", "") for e in st.session_state.estado_recursos.get("estudios_solicitados", [])])
-                })
-            
+            # Registro en historial de chat
             st.session_state.mensajes.append({"role": "user", "parts": prompt_final})
             with st.chat_message("user", avatar="👨‍⚕️"):
                 st.markdown(prompt_final)
@@ -7390,7 +7221,7 @@ with tab_simulador:
                             conn_gsheets=conn_gsheets,
                             url_gsheets=url_hoja if url_hoja else None,
                             estado_escalamiento=st.session_state.estado_escalamiento,
-                            estado_recursos=st.session_state.estado_recursos
+                            estado_recursos=None
                         )
                         
                         if tools_usadas:
@@ -8716,53 +8547,6 @@ if es_docente and tab_metricas is not None and tab_estres is not None and tab_cr
         else:
             st.info("Aún no se han registrado eventos de soporte vital o escalamiento. Ejecute casos clínicos en el Simulador para generar métricas de tiempo de reanimación.")
 
-        # Telemetría de Costo-Efectividad & Medicina Defensiva (Pilar 4)
-        st.markdown("---")
-        st.markdown("### 💰 Telemetría de Costo-Efectividad, Huella de Recursos & Choosing Wisely (Pilar 4)")
-        st.caption("Monitoreo del gasto acumulado en insumos hospitalarios, dosimetría de radiación médica y score RUR (Uso Racional de Recursos).")
-
-        df_costo_log = leer_eventos_costo_efectividad()
-        if not df_costo_log.empty:
-            total_casos_costo = len(df_costo_log)
-            gasto_prom = round(pd.to_numeric(df_costo_log["Costo_Total_ARS"], errors='coerce').fillna(0).mean(), 0) if "Costo_Total_ARS" in df_costo_log.columns else 0
-            rad_prom = round(pd.to_numeric(df_costo_log["Radiacion_Total_mSv"], errors='coerce').fillna(0).mean(), 2) if "Radiacion_Total_mSv" in df_costo_log.columns else 0.0
-            rur_prom = round(pd.to_numeric(df_costo_log["Score_RUR"], errors='coerce').fillna(100).mean(), 1) if "Score_RUR" in df_costo_log.columns else 100.0
-
-            col_cf1, col_cf2, col_cf3, col_cf4 = st.columns(4)
-            col_cf1.metric("Auditorías de Recursos", total_casos_costo)
-            col_cf2.metric("Gasto Promedio por Caso", f"${gasto_prom:,.0f} ARS")
-            col_cf3.metric("Radiación Promedio", f"{rad_prom} mSv")
-            col_cf4.metric("Índice RUR Medio", f"{rur_prom} / 100")
-
-            st.dataframe(
-                df_costo_log.sort_values(by="Fecha_UTC", ascending=False) if "Fecha_UTC" in df_costo_log.columns else df_costo_log,
-                use_container_width=True,
-                hide_index=True
-            )
-
-            col_desc_cf1, col_desc_cf2 = st.columns(2)
-            with col_desc_cf1:
-                excel_cf = exportar_df_a_excel(df_costo_log, "Costo_Efectividad")
-                st.download_button(
-                    label="📥 Exportar Huella de Recursos en Excel (.xlsx)",
-                    data=excel_cf,
-                    file_name=f"auditoria_costo_efectividad_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key="btn_descargar_costo_efectividad_excel",
-                    use_container_width=True
-                )
-            with col_desc_cf2:
-                csv_cf = exportar_df_a_csv_excel(df_costo_log)
-                st.download_button(
-                    label="📥 Exportar Huella de Recursos en CSV (Compatible ';')",
-                    data=csv_cf,
-                    file_name=f"auditoria_costo_efectividad_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                    mime="text/csv",
-                    key="btn_descargar_costo_efectividad_csv",
-                    use_container_width=True
-                )
-        else:
-            st.info("Aún no se han registrado eventos de consumo de recursos. Al solicitar estudios complementarios en el Simulador, la huella de gasto y Choosing Wisely se registrará automáticamente aquí.")
 
         # ==========================================
         # PESTAÑA: LABORATORIO DE ESTRÉS & BENCHMARKING SINTÉTICO (6 PERFILES)
@@ -9517,4 +9301,3 @@ if es_docente and tab_metricas is not None and tab_estres is not None and tab_cr
                     mime="application/json",
                     key="btn_descargar_plantilla_blanco_json"
                 )
-
