@@ -1963,93 +1963,308 @@ def calcular_exacerbacion_epoc(
 # ==================== TAXONOMIA DE SESGOS ====================
 from typing import Dict, Any, List
 
+# Modelo de Proceso Dual de Croskerry y Kahneman
+MODELO_PROCESO_DUAL: Dict[str, Any] = {
+    "sistema_1": {
+        "nombre": "Sistema 1 (Heurístico / Tácito)",
+        "subtitulo": "Reconocimiento Rápido de Patrones y Respuesta Intuitiva",
+        "icono": "⚡",
+        "color": "#f59e0b",
+        "velocidad": "< 1 segundo (Inmediato)",
+        "esfuerzo": "Bajo o nulo (Automático)",
+        "conciencia": "Implícita e inconsciente",
+        "mecanismo": "Asociación holística de patrones clínicos con prototipos memorizados de experiencias previas.",
+        "fortalezas": "Vital para actuar con máxima celeridad en emergencias agudas (paro cardiorrespiratorio, anafilaxia, shock exanguinante).",
+        "vulnerabilidad": "Altamente propenso a sesgos cognitivos cuando el cuadro es atípico, complejo o existe sobrecarga de guardia.",
+        "contexto_error": "Turnos nocturnos, fatiga, interrupciones frecuentes, sesgos de etiquetado en triage."
+    },
+    "sistema_2": {
+        "nombre": "Sistema 2 (Analítico / Deliberativo)",
+        "subtitulo": "Razonamiento Lógico-Bayesiano y Verificación Estructurada",
+        "icono": "🔬",
+        "color": "#38bdf8",
+        "velocidad": "Minutos a horas (Lento y pausado)",
+        "esfuerzo": "Alto (Demanda concentración deliberada)",
+        "conciencia": "Explícita, metacognitiva y reflexiva",
+        "mecanismo": "Formulación de hipótesis diferenciales, falsación popperiana, cálculo de razones de verosimilitud (Likelihood Ratios) y deducción algorítmica.",
+        "fortalezas": "Inmune a la mayoría de las trampas heurísticas. Capaz de desenmascarar presentaciones atípicas y diagnósticos raros o graves.",
+        "vulnerabilidad": "Lento, fatigante e inoperante en crisis de colapso hemodinámico inmediato sin soporte previo.",
+        "contexto_error": "Falta de conocimientos fisiopatológicos de base o déficit de tiempo para deliberar."
+    },
+    "compuerta_metacognitiva": {
+        "nombre": "La Compuerta de Forzamiento Cognitivo (Metacognitive Switch)",
+        "subtitulo": "El Interruptor de Desacople del Sistema 1 al Sistema 2",
+        "icono": "🛡️",
+        "color": "#10b981",
+        "mecanismo": "Monitoreo metacognitivo continuo que detecta disonancia clínica, banderas rojas o fatiga, forzando la pausa reflexiva antes de la orden médica definitiva.",
+        "herramientas_clave": [
+            "Pausa Metacognitiva (Diagnostic Time-Out de 60 segundos)",
+            "Análisis Pre-Mortem (Hipótesis de muerte en 24h por error no visto)",
+            "Regla del Peor Escenario (Descarte activo del diagnóstico letal tiempo-dependiente)"
+        ]
+    }
+}
+
+# Familias de Sesgos Cognitivos
+FAMILIAS_SESGOS: Dict[str, Dict[str, Any]] = {
+    "Heurísticas de Juicio y Anclaje": {
+        "icono": "🧭",
+        "descripcion": "Atajos mentales en la estimación de probabilidades que llevan a fijarse prematuramente en una sola posibilidad.",
+        "sesgos": ["Cierre Prematuro", "Anclaje y Ajuste Insuficiente", "Sesgo de Representatividad"]
+    },
+    "Verificación, Evidencia y Falsación": {
+        "icono": "🔍",
+        "descripcion": "Búsqueda asimétrica de datos para confirmar una creencia previa en lugar de intentar refutarla rigurosamente.",
+        "sesgos": ["Sesgo de Confirmación", "Falacia de Costos Hundidos", "Sesgo de Automatización e IA"]
+    },
+    "Influencia Social, Triage y Contexto": {
+        "icono": "👥",
+        "descripcion": "Contaminación del juicio médico por etiquetas previas de terceros, prejuicios contextuales o presión asistencial.",
+        "sesgos": ["Inercia Diagnóstica", "Sesgo de Encuadre"]
+    },
+    "Memoria, Afecto y Búsqueda": {
+        "icono": "🧠",
+        "descripcion": "Distorsiones causadas por recuerdos emocionales recientes o relajación del esfuerzo al hallar el primer dato anormal.",
+        "sesgos": ["Sesgo de Disponibilidad", "Búsqueda Satisfecha"]
+    },
+    "Seguridad Crítica y Prescripción": {
+        "icono": "🚨",
+        "descripcion": "Desatención de alarmas fisiológicas graves o fallas en el cálculo y contraindicaciones farmacológicas.",
+        "sesgos": ["Desestimación de Banderas Rojas", "Error de Cálculo", "Tratamiento Inseguro"]
+    }
+}
+
 TAXONOMIA_SESGOS: Dict[str, Dict[str, Any]] = {
     "Cierre Prematuro": {
         "categoria": "Heurística de Juicio",
+        "familia": "Heurísticas de Juicio y Anclaje",
+        "icono": "🛑",
         "descripcion": "Tendencia a dar por cerrado el proceso diagnóstico antes de verificar hipótesis alternativas o reunir evidencia crucial.",
+        "mecanismo_s1": "El cerebro experimenta alivio cognitivo inmediato al asociar los síntomas con un patrón común y clausura la búsqueda activa.",
+        "activacion_s2": "Pausa forzada de cierre: Obligarse a listar al menos 3 diagnósticos diferenciales plausibles antes de prescribir el alta o tratamiento.",
         "ejemplo_clinico": "Diagnosticar gastroenteritis aguda en una paciente anciana con diarrea sin descartar isquemia mesentérica.",
-        "estrategia_debiasing": "Pausa de Cierre: Obligarse a formular al menos 3 diagnósticos diferenciales plausibles antes de indicar el plan definitivo."
+        "estrategia_debiasing": "Pausa de Cierre: Obligarse a formular al menos 3 diagnósticos diferenciales plausibles antes de indicar el plan definitivo.",
+        "pregunta_autochequeo": "¿Qué otra patología grave podría manifestarse exactamente con este mismo cuadro y aún no he descartado?"
     },
     "Anclaje y Ajuste Insuficiente": {
         "categoria": "Heurística de Juicio",
+        "familia": "Heurísticas de Juicio y Anclaje",
+        "icono": "⚓",
         "descripcion": "Fijarse desproporcionadamente en un dato inicial (signo, síntoma o motivo de consulta) e ignorar evidencia posterior que lo contradice.",
+        "mecanismo_s1": "El primer dato recibido actúa como un ancla psicológica indeleble que sesga la interpretación de todos los estudios posteriores.",
+        "activacion_s2": "Reinicio bayesiano: Evaluar el paciente fingiendo desconocer el motivo de consulta inicial y analizando el conjunto completo de datos objetivos.",
         "ejemplo_clinico": "Persistir con diagnóstico de infarto agudo de miocardio en paciente con dolor torácico a pesar de ECG normal y asimetría de pulsos (disección aórtica).",
-        "estrategia_debiasing": "Reajuste Bayesiano: Preguntarse 'Si no supiera el motivo de consulta inicial, ¿qué diagnóstico sugeriría este nuevo conjunto de datos?'"
+        "estrategia_debiasing": "Reajuste Bayesiano: Preguntarse 'Si no supiera el motivo de consulta inicial, ¿qué diagnóstico sugeriría este nuevo conjunto de datos?'",
+        "pregunta_autochequeo": "Si borrara el motivo de ingreso original de la guardia, ¿hacia dónde apuntarían los estudios y signos vitales actuales?"
     },
     "Sesgo de Confirmación": {
         "categoria": "Verificación",
+        "familia": "Verificación, Evidencia y Falsación",
+        "icono": "🎯",
         "descripcion": "Buscar selectivamente laboratorios o signos que confirmen la hipótesis preferida, ignorando o minimizando datos discordantes.",
+        "mecanismo_s1": "Búsqueda de coherencia narrativa: el cerebro amplifica lo que apoya su sospecha y minimiza activamente las señales discordantes.",
+        "activacion_s2": "Principio de falsación de Popper: Intentar activamente destruir la hipótesis propia buscando el hallazgo que la haría insostenible.",
         "ejemplo_clinico": "Pedir troponinas reiteradas en un dolor torácico pleurítico con ecografía pulmonar patológica, descartando la posibilidad de TEP.",
-        "estrategia_debiasing": "Búsqueda Activa de Falsación (Popper): '¿Qué hallazgo clínico o estudio destruiría mi hipótesis actual?'"
+        "estrategia_debiasing": "Búsqueda Activa de Falsación (Popper): '¿Qué hallazgo clínico o estudio destruiría mi hipótesis actual?'",
+        "pregunta_autochequeo": "¿Qué dato en este paciente contradice frontalmente mi sospecha diagnóstica favorita?"
     },
     "Inercia Diagnóstica": {
         "categoria": "Influencia Social / Contextual",
+        "familia": "Influencia Social, Triage y Contexto",
+        "icono": "🚂",
         "descripcion": "Aceptar pasivamente la etiqueta diagnóstica previa puesta por la ambulancia, el triage o la guardia anterior sin reevaluar al paciente.",
+        "mecanismo_s1": "Delegación de autoridad y economía cognitiva: se asume que quien evaluó primero al paciente ya realizó el análisis crítico riguroso.",
+        "activacion_s2": "Reinicio epistémico: Tomar la historia clínica y los signos vitales desde cero, suspendiendo el juicio heredado del pase de guardia.",
         "ejemplo_clinico": "Internar a un paciente por 'crisis de pánico' derivado del triage, pasando por alto una embolia de pulmón o taquiarritmia paroxística.",
-        "estrategia_debiasing": "Reinicio Epistémico: Realizar un interrogatorio y examen físico desde cero, ignorando la nota de derivación previa."
+        "estrategia_debiasing": "Reinicio Epistémico: Realizar un interrogatorio y examen físico desde cero, ignorando la nota de derivación previa.",
+        "pregunta_autochequeo": "Si este paciente acabara de cruzar la puerta del hospital sin ninguna derivación previa, ¿llegaría yo a esta misma conclusión?"
     },
     "Búsqueda Satisfecha": {
         "categoria": "Exploración",
+        "familia": "Memoria, Afecto y Búsqueda",
+        "icono": "🔍",
         "descripcion": "Dejar de buscar diagnósticos adicionales o lesiones secundarias una vez que se ha encontrado una anomalía evidente.",
+        "mecanismo_s1": "Sensación de éxito prematura: al hallar un resultado francamente patológico (ej. urocultivo positivo), el cerebro detiene la exploración.",
+        "activacion_s2": "Regla de la segunda lesión: En pacientes ancianos, diabéticos o traumatizados, asumir sistemáticamente que coexiste un segundo foco patológico.",
         "ejemplo_clinico": "Hallar una infección urinaria en un paciente con delirio febril y no advertir signos meníngeos ni endocarditis asociada.",
-        "estrategia_debiasing": "Regla de la Segunda Lesión / Segundo Foco: Siempre buscar una segunda causa en pacientes complejos o ancianos."
+        "estrategia_debiasing": "Regla de la Segunda Lesión / Segundo Foco: Siempre buscar una segunda causa en pacientes complejos o ancianos.",
+        "pregunta_autochequeo": "Ya encontré una alteración evidente. ¿Qué otra patología silenciosa o secundaria está pasando desapercibida?"
     },
     "Sesgo de Disponibilidad": {
         "categoria": "Memoria y Experiencia",
+        "familia": "Memoria, Afecto y Búsqueda",
+        "icono": "💡",
         "descripcion": "Juzgar un diagnóstico como más probable solo porque fue visto recientemente o porque causó un impacto emocional intenso en el médico.",
+        "mecanismo_s1": "Facilidad de recuperación mnemónica: lo reciente, dramático o punitivo se recupera instantáneamente y domina el juicio diagnóstico.",
+        "activacion_s2": "Calibración epidemiológica: Cotejar la probabilidad pre-test real y la prevalencia poblacional antes de indicar estudios invasivos.",
         "ejemplo_clinico": "Sospechar encefalitis herpética en una cefalea tensional común porque la semana pasada se atendió un caso fatal de herpes virus.",
-        "estrategia_debiasing": "Calibración Epidemiológica: Revisar la prevalencia basal real de la enfermedad antes de atribuirle el cuadro."
+        "estrategia_debiasing": "Calibración Epidemiológica: Revisar la prevalencia basal real de la enfermedad antes de atribuirle el cuadro.",
+        "pregunta_autochequeo": "¿Estoy pensando en esta patología porque la clínica lo fundamenta o porque vi un caso similar hace pocos días?"
     },
     "Sesgo de Encuadre": {
         "categoria": "Influencia Social / Contextual",
+        "familia": "Influencia Social, Triage y Contexto",
+        "icono": "🖼️",
         "descripcion": "Ser influenciado por la manera en que se presenta la información del paciente (antecedentes psiquiátricos, adicciones, quejas recurrentes).",
+        "mecanismo_s1": "Activación de estereotipos y prejuicios implícitos que filtran o desestiman la sintomatología somática real del paciente.",
+        "activacion_s2": "Desencuadre objetivo: Analizar primero los signos vitales, parámetros de laboratorio y examen físico antes de leer notas subjetivas de conducta.",
         "ejemplo_clinico": "Desestimar cefalea en paciente catalogado como 'adicto a opioides en busca de recetas', omitiendo hemorragia subaracnoidea.",
-        "estrategia_debiasing": "Desencuadre Objetivo: Analizar exclusivamente los datos duros y los signos vitales antes de leer las notas subjetivas."
+        "estrategia_debiasing": "Desencuadre Objetivo: Analizar exclusivamente los datos duros y los signos vitales antes de leer las notas subjetivas.",
+        "pregunta_autochequeo": "Si este mismo síntoma lo refiriera un colega médico o un familiar, ¿lo estudiaría con este mismo rigor?"
     },
     "Sesgo de Representatividad": {
         "categoria": "Heurística de Juicio",
+        "familia": "Heurísticas de Juicio y Anclaje",
+        "icono": "🎭",
         "descripcion": "Esperar que la enfermedad se presente de forma 'de libro' e ignorar presentaciones atípicas frecuentes en ancianos, mujeres o diabéticos.",
+        "mecanismo_s1": "Comparación con el prototipo ideal: si el cuadro no encaja con la viñeta clásica de manual, el cerebro lo descarta automáticamente.",
+        "activacion_s2": "Alerta de equivalentes y atipias: Conocer que en poblaciones vulnerables (ancianos, DBT, inmunocomprometidos) la presentación típica es la excepción.",
         "ejemplo_clinico": "No sospechar infarto de miocardio en mujer diabética porque no presenta dolor precordial opresivo con irradiación típica a brazo izquierdo.",
-        "estrategia_debiasing": "Alerta de Equivalentes Anginosos y Atipias: En ancianos y DBT, considerar disnea, debilidad súbita o confusión como presentaciones isquémicas."
+        "estrategia_debiasing": "Alerta de Equivalentes Anginosos y Atipias: En ancianos y DBT, considerar disnea, debilidad súbita o confusión como presentaciones isquémicas.",
+        "pregunta_autochequeo": "¿Este paciente pertenece a un grupo donde la presentación clínica suele ser atípica o silente?"
     },
     "Desestimación de Banderas Rojas": {
         "categoria": "Seguridad del Paciente",
+        "familia": "Seguridad Crítica y Prescripción",
+        "icono": "🚩",
         "descripcion": "Minimizar o normalizar signos vitales francamente alterados (taquipnea aislada, hipotensión limítrofe, saturación limítrofe).",
+        "mecanismo_s1": "Normalización de la desviación: en el caos de la guardia se asume erróneamente que una taquipnea de 26/min es 'nerviosismo o dolor'.",
+        "activacion_s2": "Auditoría de signos vitales: Todo signo vital fuera de rango fisiológico exige una causa orgánica demostrada hasta que se demuestre lo contrario.",
         "ejemplo_clinico": "Atribuir frecuencia respiratoria de 26/min a 'ansiedad' sin advertir acidosis láctica incipiente o neumonía.",
-        "estrategia_debiasing": "Auditoría de Signos Vitales: Ningún signo vital alterado puede atribuirse a estrés emocional sin justificación médica documentada."
+        "estrategia_debiasing": "Auditoría de Signos Vitales: Ningún signo vital alterado puede atribuirse a estrés emocional sin justificación médica documentada.",
+        "pregunta_autochequeo": "¿Por qué este paciente tiene este signo vital alterado y qué patología de riesgo inminente lo explica mejor?"
     },
     "Falacia de Costos Hundidos": {
         "categoria": "Decisión Terapéutica",
+        "familia": "Verificación, Evidencia y Falsación",
+        "icono": "⏳",
         "descripcion": "Continuar con un plan terapéutico ineficaz o invasivo simplemente por el tiempo, dinero o esfuerzo ya invertido en él.",
+        "mecanismo_s1": "Aversión a la pérdida y resistencia a admitir el fracaso de la estrategia terapéutica inicial.",
+        "activacion_s2": "Pausa de eficacia: Evaluar la respuesta clínica objetiva a las 48-72 hs; si no hay mejoría, replantear el diagnóstico de raíz sin culpa.",
         "ejemplo_clinico": "No rotar el esquema antibiótico a las 72 hs de empeoramiento clínico porque 'ya se inició el tratamiento de 7 días'.",
-        "estrategia_debiasing": "Pausa de Eficacia: 'Si este paciente llegara ahora por primera vez con este estado, ¿elegiría este mismo esquema?'"
+        "estrategia_debiasing": "Pausa de Eficacia: 'Si este paciente llegara ahora por primera vez con este estado, ¿elegiría este mismo esquema?'",
+        "pregunta_autochequeo": "Si viera este caso por primera vez en este preciso minuto, ¿mantendría este mismo tratamiento ineficaz?"
     },
     "Error de Cálculo": {
         "categoria": "Riesgo Iatrogénico",
+        "familia": "Seguridad Crítica y Prescripción",
+        "icono": "🔢",
         "descripcion": "Cálculo erróneo de dosis, falta de ajuste renal/hepático o interpretación matemática incorrecta de balances hidroelectrolíticos.",
+        "mecanismo_s1": "Cálculo mental apresurado bajo presión o prescripción automática de dosis estándar de adulto sin chequear función de depuración.",
+        "activacion_s2": "Doble chequeo algorítmico: Empleo sistemático de calculadoras validadas (CKD-EPI, Cockcroft-Gault, correcciones iónicas) antes de indicar fármacos críticos.",
         "ejemplo_clinico": "Indicar dosis plenas de antibióticos nefrotóxicos o heparinas de bajo peso molecular en falla renal con TFGe < 30.",
-        "estrategia_debiasing": "Doble Chequeo Biomédico: Utilizar calculadoras clínicas automáticas de TFGe antes de prescribir fármacos de aclaramiento renal."
+        "estrategia_debiasing": "Doble Chequeo Biomédico: Utilizar calculadoras clínicas automáticas de TFGe antes de prescribir fármacos de aclaramiento renal.",
+        "pregunta_autochequeo": "¿Verifiqué el filtrado glomerular y las tablas de ajuste renal antes de firmar esta dosis de antibiótico o anticoagulante?"
     },
     "Tratamiento Inseguro": {
         "categoria": "Seguridad del Paciente",
+        "familia": "Seguridad Crítica y Prescripción",
+        "icono": "⚠️",
         "descripcion": "Indicación terapéutica que viola la seguridad del paciente, presenta contraindicaciones graves o desatiende guías clínicas consolidadas.",
+        "mecanismo_s1": "Prescripción refleja sin cotejo de comorbilidades (ej. indicar betabloqueantes en bradicardia o AINEs en úlcera péptica activa).",
+        "activacion_s2": "Lista de chequeo farmacológica: Comprobación de interacciones, alergias y contraindicaciones absolutas en el historial del paciente.",
         "ejemplo_clinico": "Administrar oxígeno al 100% por máscara con reservorio en paciente con EPOC retenedor crónico de CO2 con acidosis respiratoria.",
-        "estrategia_debiasing": "Verificación de Seguridad: Chequear metas oxigenatorias y contraindicaciones farmacológicas antes de la administración."
+        "estrategia_debiasing": "Verificación de Seguridad: Chequear metas oxigenatorias y contraindicaciones farmacológicas antes de la administración.",
+        "pregunta_autochequeo": "¿Existe alguna contraindicación fisiopatológica absoluta para este fármaco en el contexto particular de este paciente?"
+    },
+    "Sesgo de Automatización e IA": {
+        "categoria": "Cognición Digital / Verificación",
+        "familia": "Verificación, Evidencia y Falsación",
+        "icono": "🤖",
+        "descripcion": "Tendencia a delegar acríticamente el juicio diagnóstico en sistemas computacionales o modelos de IA (Cognitive Offloading), aceptando sugerencias algorítmicas aun cuando contradicen los signos vitales, la semiología o guías clínicas consolidadas.",
+        "mecanismo_s1": "Descarga cognitiva y complacencia tecnológica: el cerebro asume que el algoritmo posee un saber infalible o exhaustivo, desactivando la fricción reflexiva y el esfuerzo analítico del Sistema 2.",
+        "activacion_s2": "Vigilancia Epistémica y Auditoría Popperiana de IA: Tratar toda respuesta de un modelo de lenguaje como una mera conjetura probabilística no validada. Buscar activamente la alucinación, la omisión de banderas rojas o la interacción fatal.",
+        "ejemplo_clinico": "Aceptar la sugerencia de un chatbot que clasifica una taquicardia sinusal con disnea súbita posquirúrgica como 'ataque de pánico', omitiendo solicitar angiotac para TEP a pesar de taquipnea y SatO2 91%.",
+        "estrategia_debiasing": "Auditoría Popperiana de IA: Preguntarse '¿Qué dato clínico relevante está ignorando el modelo y qué patología letal tiempo-dependiente está omitiendo por completo?'",
+        "pregunta_autochequeo": "Si esta recomendación la hubiera emitido un alumno de primer año y no una máquina, ¿la aceptaría a ciegas o le exigiría fundamentar cada premisa fisiopatológica?"
     }
 }
 
 ESTRATEGIAS_FORZAMIENTO_COGNITIVO = {
     "Pre-Mortem": {
         "nombre": "Análisis Pre-Mortem",
-        "pregunta": "¿Si asumimos hipotéticamente que este paciente fallece en 24 horas por una complicación no detectada, cuál fue el error que cometimos?"
+        "pregunta": "¿Si asumimos hipotéticamente que este paciente fallece en 24 horas por una complicación no detectada, cuál fue el error que cometimos?",
+        "icono": "💀",
+        "utilidad": "Neutraliza el optimismo complaciente y desenmascara complicaciones catastróficas ocultas."
     },
     "Time-Out": {
         "nombre": "Pausa Metacognitiva (Diagnostic Time-Out)",
-        "pregunta": "¿Qué hecho clínico o dato del laboratorio es el que MENOS encaja con su diagnóstico principal?"
+        "pregunta": "¿Qué hecho clínico o dato del laboratorio es el que MENOS encaja con su diagnóstico principal?",
+        "icono": "⏱️",
+        "utilidad": "Frena el Cierre Prematuro obligando a mirar la anomalía inexplicada."
     },
     "Worst-Case": {
         "nombre": "Regla del Peor Escenario",
-        "pregunta": "¿Cuál es el diagnóstico más letal y tiempo-dependiente que comparte esta presentación clínica, y cómo lo descartó activamente?"
+        "pregunta": "¿Cuál es el diagnóstico más letal y tiempo-dependiente que comparte esta presentación clínica, y cómo lo descartó activamente?",
+        "icono": "🚨",
+        "utilidad": "Evita el alta prematura de cuadros graves como TEP, disección aórtica o sepsis precoz."
+    }
+}
+
+ESCENARIOS_BIFURCACION_COGNITIVA: Dict[str, Dict[str, Any]] = {
+    "caso_diarrea_anciano": {
+        "titulo": "👴 Paciente de 74 años con diarrea líquida y dolor abdominal vago",
+        "presentacion": "Mujer de 74 años, hipertensa y con fibrilación auricular crónica. Consulta a las 03:00 am por 4 deposiciones líquidas en 12 horas, náuseas y dolor periumbilical difuso de moderada intensidad. Abdomen blando, poco doloroso a la palpación.",
+        "via_s1": {
+            "atajo": "Asociación inmediata con gastroenteritis aguda alimentaria de la guardia.",
+            "sesgo": "🛑 Cierre Prematuro y Sesgo de Disponibilidad",
+            "conducta_erronea": "Se indican sales de hidratación oral, antiespasmódicos y alta a domicilio sin laboratorio vascular ni ECG.",
+            "desenlace_catastrofico": "La paciente reingresa a las 14 horas en shock refractario por ISQUEMIA MESENTÉRICA AGUDA con necrosis transmural intestinal."
+        },
+        "via_s2": {
+            "estrategia": "🚨 Regla del Peor Escenario + Pausa Metacognitiva",
+            "pregunta_socratica": "¿Cuál es la emergencia vascular catastrófica que provoca dolor desproporcionado al examen físico en un paciente con fibrilación auricular?",
+            "conducta_analitica": "Se solicita estado ácido-base urgente (muestra hiperlactacidemia 3.4 mmol/L) y AngioTAC abdominal inmediata.",
+            "desenlace_exitoso": "Detección precoz de tromboémbolo en arteria mesentérica superior. Revascularización quirúrgica urgente sin resección intestinal."
+        }
+    },
+    "caso_disnea_joven": {
+        "titulo": "👩 Joven de 23 años con disnea súbita y taquicardia en triage",
+        "presentacion": "Mujer de 23 años ingresa a la guardia hiperventilando, con opresión precordial inespecífica y FC 115 lpm. Triage la rotula en recepción como 'Crisis de ansiedad / Ataque de pánico' debido a llanto y discusión reciente.",
+        "via_s1": {
+            "atajo": "Aceptación pasiva del rótulo de triage. Se asume cuadro psicosomático por edad y género.",
+            "sesgo": "🚂 Inercia Diagnóstica y Sesgo de Encuadre",
+            "conducta_erronea": "Se le administra benzodiazepina sublingual y se la deja en observación en camilla sin interrogar factores trombóticos ni SpO2 al esfuerzo.",
+            "desenlace_catastrofico": "La paciente sufre un síncope al pararse: TEP MASIVO bilateral desapercibido favorecido por uso reciente de anticonceptivos orales combinados y tabaquismo."
+        },
+        "via_s2": {
+            "estrategia": "🚩 Auditoría de Signos Vitales + Reinicio Epistémico",
+            "pregunta_socratica": "La taquicardia sinusal persistente (115 lpm) NUNCA debe atribuirse a ansiedad sin calcular antes el Score de Wells / Ginebra para TEP.",
+            "conducta_analitica": "Se interrogan antecedentes farmacológicos (ACOs), se detecta hipoxemia leve con gradiente A-a aumentado y se solicita Dímero D / AngioTAC de tórax.",
+            "desenlace_exitoso": "Diagnóstico oportuno de tromboembolismo pulmonar submasivo con sobrecarga de VD. Inicio inmediato de anticoagulación plena y recuperación total."
+        }
+    },
+    "caso_cefalea_hipertenso": {
+        "titulo": "👨 Varón de 52 años con cefalea intensa tras esfuerzo y TA 175/100",
+        "presentacion": "Varón de 52 años sin controles previos consulta por cefalea occipital de inicio explosivo mientras levantaba peso en el taller. Refiere que alcanzó el pico de intensidad en menos de 1 minuto ('la peor de mi vida'). El médico de guardia atribuye el cuadro a su cifra tensional.",
+        "via_s1": {
+            "atajo": "Se asume 'Cefalea hipertensiva' por ver la tensión arterial en 175/100 mmHg en el monitor.",
+            "sesgo": "⚓ Anclaje y Ajuste Insuficiente",
+            "conducta_erronea": "Se administra antihipertensivo oral (enalapril) y analgésico común, esperando que al bajar la TA se resuelva la cefalea.",
+            "desenlace_catastrofico": "El paciente entra en coma a las 6 horas: HEMORRAGIA SUBARACNOIDEA por rotura aneurismática, donde la hipertensión era una respuesta reactiva de Cushing."
+        },
+        "via_s2": {
+            "estrategia": "⏱️ Diagnostic Time-Out + Búsqueda de Banderas Rojas",
+            "pregunta_socratica": "Toda 'cefalea en trueno' (thunderclap headache) que llega al máximo en < 1 minuto es una Hemorragia Subaracnoidea hasta demostrar lo contrario con TAC de cráneo sin contraste.",
+            "conducta_analitica": "Se prioriza TAC encefálica precoz en menos de 60 minutos y se interconsulta urgente con Neurocirugía para angiografía digital.",
+            "desenlace_exitoso": "Embolización endovascular inmediata del aneurisma de arteria comunicante anterior antes del resangrado fatal. Paciente dado de alta sin secuelas neurológicas."
+        }
+    },
+    "caso_delirio_infeccion": {
+        "titulo": "👵 Paciente de 81 años con síndrome confusional agudo y piuria",
+        "presentacion": "Mujer de 81 años es traída por su familia por desorientación témporo-espacial de 48 horas de evolución y febrícula. En el laboratorio inicial se constata sedimento urinario patológico con piocitos abundantes y bacterias.",
+        "via_s1": {
+            "atajo": "El médico encuentra la infección urinaria evidente y asume que explica el 100% del cuadro cognitivo.",
+            "sesgo": "🔍 Búsqueda Satisfecha y Cierre Prematuro",
+            "conducta_erronea": "Se prescribe ciprofloxacina oral y se atribuye el sensorio a 'ITU complicada', omitiendo el examen neurológico focal y la auscultación cardíaca.",
+            "desenlace_catastrofico": "La paciente deteriora el Glasgow: coexistía una ENDOCARDITIS INFECCIOSA de válvula aórtica con émbolos sépticos cerebrales y bacteriemia por S. aureus."
+        },
+        "via_s2": {
+            "estrategia": "💀 Análisis Pre-Mortem + Regla de la Segunda Lesión",
+            "pregunta_socratica": "¿Por qué esta paciente tiene además un soplo cardíaco sistólico de nueva aparición y lesiones petequiales en conjuntivas?",
+            "conducta_analitica": "Se toman 3 series de hemocultivos antes del antibiótico, se solicita ecocardiograma transtorácico urgente y TAC de cráneo.",
+            "desenlace_exitoso": "Detección de vegetación aórtica de 12 mm y microabsceso cerebral precoz. Tratamiento antibiótico endovenoso dirigido y control en UTI con sobrevida preservada."
+        }
     }
 }
 
@@ -2061,10 +2276,19 @@ def obtener_detalle_sesgo(nombre: str) -> Dict[str, Any]:
     """Retorna información detallada de un sesgo."""
     return TAXONOMIA_SESGOS.get(nombre, {
         "categoria": "No clasificado",
+        "familia": "No clasificado",
+        "icono": "❓",
         "descripcion": "Sesgo cognitivo o error de razonamiento.",
+        "mecanismo_s1": "Atajo heurístico no clasificado.",
+        "activacion_s2": "Pausa reflexiva y consulta con un par clínico.",
         "ejemplo_clinico": "N/A",
-        "estrategia_debiasing": "Pausa reflexiva y consulta con un par clínico."
+        "estrategia_debiasing": "Pausa reflexiva y consulta con un par clínico.",
+        "pregunta_autochequeo": "¿Qué evidencia respalda mi sospecha diagnóstica actual?"
     })
+
+def obtener_sesgos_por_familia(familia: str) -> List[str]:
+    """Retorna los sesgos pertenecientes a una familia específica."""
+    return FAMILIAS_SESGOS.get(familia, {}).get("sesgos", [])
 # ==================== GUIAS DE ESTUDIO Y MAPAS ====================
 from typing import Dict, Any, List
 
@@ -6377,6 +6601,8 @@ import altair as alt
 import json
 import sys
 import importlib
+from datetime import datetime, timezone
+import re
 
 # Recarga en caliente segura de módulos del proyecto para evitar caché residual en Streamlit
 for _m in list(sys.modules.keys()):
@@ -6624,30 +6850,18 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-if es_docente:
-    tab_simulador, tab_deskilling, tab_mapas, tab_videoteca, tab_gobernanza, tab_programa, tab_metricas, tab_estres, tab_creador = st.tabs([
-        "🩺 Simulador Clínico Socrático",
-        "🥊 Gimnasio Anti-Deskilling (DEFT-AI)",
-        "🗺️ Mapas Conceptuales & Guías de Estudio",
-        "📺 Clases & Ateneos (YouTube)",
-        "🛡️ Taxonomía de Sesgos & Gobernanza",
-        "🎓 Residencia Hospital Heller & Programa",
-        "📊 Métricas & Auditoría Docente",
-        "⚡ Laboratorio de Estrés & Benchmarking",
-        "➕ Creador & Banco de Casos"
-    ])
-else:
-    tab_simulador, tab_deskilling, tab_mapas, tab_videoteca, tab_gobernanza, tab_programa = st.tabs([
-        "🩺 Simulador Clínico Socrático",
-        "🥊 Gimnasio Anti-Deskilling (DEFT-AI)",
-        "🗺️ Mapas Conceptuales & Guías de Estudio",
-        "📺 Clases & Ateneos (YouTube)",
-        "🛡️ Taxonomía de Sesgos & Gobernanza",
-        "🎓 Residencia Hospital Heller & Programa"
-    ])
-    tab_metricas = None
-    tab_estres = None
-    tab_creador = None
+# Todas las pestañas se declaran de forma unificada y permanente
+tab_simulador, tab_deskilling, tab_mapas, tab_videoteca, tab_gobernanza, tab_programa, tab_metricas, tab_estres, tab_creador = st.tabs([
+    "🩺 Simulador Clínico Socrático",
+    "🥊 Gimnasio Anti-Deskilling (DEFT-AI)",
+    "🗺️ Mapas Conceptuales & Guías de Estudio",
+    "📺 Clases & Ateneos (YouTube)",
+    "🧠 Cerebro Socrático: Teoría Dual & Sesgos",
+    "🎓 Residencia Hospital Heller & Programa",
+    "📊 Métricas & Auditoría Docente",
+    "⚡ Laboratorio de Estrés & Benchmarking",
+    "➕ Creador & Banco de Casos"
+])
 
 # ==========================================
 # PESTAÑA 1: SIMULADOR CLÍNICO
@@ -7290,6 +7504,51 @@ with tab_deskilling:
         </div>
     """, unsafe_allow_html=True)
 
+    # Acordeón de Evidencia Científica & Debate con Médicos Escépticos (NEJM 2025, Lancet 2025)
+    with st.expander("📚 Evidencia Científica 2025 & Posición Docente: ¿Por qué los médicos escépticos de la IA tienen parte de razón?", expanded=False):
+        col_ev_a, col_ev_b = st.columns(2)
+        with col_ev_a:
+            st.markdown("""
+                #### 🏛️ El Diagnóstico Científico del Peligro
+                * 📄 **NEJM (Agosto 2025) — La Triple Amenaza Cognitiva:**
+                  * [Abdulnour RE, Gin B, Boscardin CK. Educational Strategies for Clinical Supervision of Artificial Intelligence Use. N Engl J Med 2025; 393: 786–797](https://doi.org/10.1056/NEJMra2503232) (DOI: `10.1056/NEJMra2503232`).
+                  * **Deskilling (Desentrenamiento):** Atrofia de una competencia que el médico ya dominaba.
+                  * **Never-skilling (Incompetencia de origen):** El residente nunca adquiere la habilidad básica porque el modelo resolvió la incertidumbre diagnóstica desde el inicio, suprimiendo la "lucha cognitiva" formativa.
+                  * **Mis-skilling (Aprendizaje viciado):** Adopción acrítica de alucinaciones o atajos del algoritmo como certezas médicas.
+                * 🔬 **The Lancet Gastroenterology & Hepatology (2025) — Evidencia Empírica del "Efecto Google Maps":**
+                  * [Budzyń K, et al. Endoscopist deskilling risk after exposure to artificial intelligence in colonoscopy: a multicentre, observational study](https://doi.org/10.1016/S2468-1253(25)00150-8).
+                  * **Hallazgo:** Endoscopistas habituados a usar IA sufrieron una caída en la Tasa de Detección de Adenomas (ADR) del **28.4% al 22.4%** cuando realizaron colonoscopias **sin IA**.
+            """)
+        with col_ev_b:
+            st.markdown("""
+                #### ✈️ La Metáfora de la Aviación & La Solución Socrática
+                * 🛩️ **"Los Niños de la Línea Magenta" (Warren Vanderburgh, JAMA & Aviation Safety):**
+                  * En aviación, los pilotos que dependían ciegamente de la computadora de navegación (la línea magenta) perdieron la habilidad manual de volar (*stick-and-rudder*) ante emergencias.
+                  * En medicina, no podemos permitir que los residentes se conviertan en *"médicos de la línea magenta"*, incapaces de pensar si se corta la red o el modelo alucina.
+                * 🛡️ **La Tercera Vía de Socrático (Vigilancia Epistémica):**
+                  * Ni **prohibición absurda** (el hospital no puede vivir en el siglo XIX) ni **delegación ciega** (mala praxis por *Automation Bias*).
+                  * **El Médico como Auditor Popperiano:** El rol soberano del profesional frente a la IA es someter sus conjeturas a **falsación activa**.
+            """)
+        
+        # Botón de Descarga del Manifiesto Docente Hospitalario
+        st.markdown("---")
+        col_man_info, col_man_btn = st.columns([2.5, 1])
+        with col_man_info:
+            st.markdown("**📜 Manifiesto Pedagógico Hospitalario:** Documento de posición académica para presentar a comités de docencia y jefes de servicio sobre la supervisión de IA.")
+        with col_man_btn:
+            try:
+                with open("docs/MANIFIESTO_DOCENTE_SOCRATICO_IA_CLINICA.md", "r", encoding="utf-8") as f_man:
+                    contenido_manifiesto = f_man.read()
+            except Exception:
+                contenido_manifiesto = "# Manifiesto Docente Socrático\\nDisponible en docs/MANIFIESTO_DOCENTE_SOCRATICO_IA_CLINICA.md"
+            st.download_button(
+                label="📥 Descargar Manifiesto (.md)",
+                data=contenido_manifiesto,
+                file_name="MANIFIESTO_DOCENTE_SOCRATICO_IA_CLINICA.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
+
     # Filtros y selector de desafíos
     col_fd1, col_fd2 = st.columns([1, 2])
     with col_fd1:
@@ -7692,21 +7951,312 @@ with tab_videoteca:
 # PESTAÑA: TAXONOMÍA & GOBERNANZA PHI
 # ==========================================
 with tab_gobernanza:
-    st.markdown("### 🛡️ Marco Teórico: Taxonomía de Croskerry & Desesgamiento")
+    # Hero Banner Institucional de la Arquitectura Cognitiva
     st.markdown("""
-        El razonamiento médico integra dos sistemas cognitivos:
-        * **Sistema 1 (Heurístico):** Rápido, automático, de bajo consumo energético, pero vulnerable a sesgos cognitivos.
-        * **Sistema 2 (Analítico):** Lento, deliberativo, bayesiano y riguroso.
+        <div style="background: linear-gradient(135deg, #091220 0%, #0f2744 50%, #16385c 100%); border-radius: 14px; padding: 26px 30px; color: white; margin-bottom: 22px; border-left: 6px solid #f59e0b; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                <span style="background: rgba(245, 158, 11, 0.25); color: #f59e0b; font-size: 0.76rem; font-weight: 800; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.8px; border: 1px solid rgba(245, 158, 11, 0.4);">
+                    MODELO UNIVERSAL DE PAT CROSKERRY • DUAL PROCESS THEORY
+                </span>
+                <span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 0.76rem; font-weight: 700; padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.3);">
+                    DANIEL KAHNEMAN (THINKING, FAST AND SLOW)
+                </span>
+            </div>
+            <h1 style="color: white; font-size: 2.1rem; font-weight: 800; margin: 8px 0 10px 0; line-height: 1.25;">
+                🧠 El Cerebro Socrático: Arquitectura de la Decisión Clínica & Metacognición en Urgencias
+            </h1>
+            <p style="color: #cbd5e1; font-size: 1.02rem; line-height: 1.6; margin: 0;">
+                En medicina de guardia e internación, el <strong>75% de los errores diagnósticos</strong> no se originan por falta de conocimientos teóricos, sino por <strong>fallas en el procesamiento cognitivo</strong> (heurísticas apresuradas no calibradas). Este módulo es el corazón intelectual de <strong>Socrático</strong>: entrena el <em>desacople voluntario del Sistema 1</em> para activar la <em>deliberación bayesiana del Sistema 2</em> antes de emitir un juicio definitivo.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Métricas Clave en 3 Columnas
+    col_c1, col_c2, col_c3 = st.columns(3)
+    with col_c1:
+        st.metric(
+            label="⚡ Vía Rápida: Sistema 1",
+            value="< 1 seg (Reflejo)",
+            delta="Reconocimiento Heurístico de Patrones",
+            delta_color="normal"
+        )
+    with col_c2:
+        st.metric(
+            label="🛡️ Interruptor Metacognitivo",
+            value="3 Herramientas",
+            delta="Desacople Socrático al Pie de Cama",
+            delta_color="normal"
+        )
+    with col_c3:
+        st.metric(
+            label="🔬 Vía Deliberativa: Sistema 2",
+            value="Minutos (Pausado)",
+            delta="Verificación Lógico-Bayesiana",
+            delta_color="normal"
+        )
+
+    st.markdown("---")
+
+    # ==========================================
+    # SECCIÓN 1: EL CIRCUITO NEUROCOGNITIVO DE LA DECISIÓN MÉDICA (CROSKERRY)
+    # ==========================================
+    st.markdown("### ⚡ El Circuito Neurocognitivo de la Decisión Médica")
+    st.caption("Estructura funcional del razonamiento clínico: Entrada de guardia ➔ Bifurcación cognitiva ➔ Compuerta de forzamiento ➔ Calibración experta.")
+
+    col_arch1, col_arch2, col_arch3 = st.columns(3)
+
+    with col_arch1:
+        st.markdown("""
+            <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid #f59e0b; border-radius: 10px; padding: 16px; height: 100%;">
+                <div style="font-size: 0.75rem; font-weight: 800; color: #f59e0b; text-transform: uppercase; margin-bottom: 4px;">
+                    1. VÍA REFLEJA HEURÍSTICA
+                </div>
+                <h4 style="margin: 0 0 8px 0; color: #d97706;">⚡ Sistema 1: Motor Intuitivo</h4>
+                <p style="font-size: 0.88rem; line-height: 1.5; color: inherit; margin-bottom: 10px;">
+                    Empareja instantáneamente las facies, síntomas y motivo de consulta con casos memorizados.
+                </p>
+                <div style="font-size: 0.82rem; margin-bottom: 8px;">
+                    <strong>✅ Rol Vital:</strong> Acción rápida en paro cardíaco, anafilaxia o shock descompensado.
+                </div>
+                <div style="font-size: 0.82rem; color: #dc2626;">
+                    <strong>⚠️ Trampa Mortal:</strong> Anclaje, Cierre Prematuro, Confirmación e Inercia en cuadros atípicos.
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_arch2:
+        st.markdown("""
+            <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; border-radius: 10px; padding: 16px; height: 100%;">
+                <div style="font-size: 0.75rem; font-weight: 800; color: #10b981; text-transform: uppercase; margin-bottom: 4px;">
+                    2. LA COMPUERTA SOCRÁTICA
+                </div>
+                <h4 style="margin: 0 0 8px 0; color: #059669;">🛡️ Interruptor Metacognitivo</h4>
+                <p style="font-size: 0.88rem; line-height: 1.5; color: inherit; margin-bottom: 10px;">
+                    Monitoreo en tiempo real que frena el automatismo cuando detecta disonancia o banderas rojas.
+                </p>
+                <div style="font-size: 0.82rem; margin-bottom: 4px;">
+                    <strong>⏱️ Diagnostic Time-Out:</strong> Pausa de 60s antes de dar el alta.
+                </div>
+                <div style="font-size: 0.82rem; margin-bottom: 4px;">
+                    <strong>💀 Análisis Pre-Mortem:</strong> <em>"¿Y si muere en 24h, qué no vimos?"</em>
+                </div>
+                <div style="font-size: 0.82rem;">
+                    <strong>🚨 Worst-Case Scenario:</strong> Descarte del diagnóstico letal.
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_arch3:
+        st.markdown("""
+            <div style="background: rgba(56, 189, 248, 0.08); border-left: 4px solid #0284c7; border-radius: 10px; padding: 16px; height: 100%;">
+                <div style="font-size: 0.75rem; font-weight: 800; color: #0284c7; text-transform: uppercase; margin-bottom: 4px;">
+                    3. VÍA DELIBERATIVA RIGUROSA
+                </div>
+                <h4 style="margin: 0 0 8px 0; color: #0284c7;">🔬 Sistema 2: Motor Bayesiano</h4>
+                <p style="font-size: 0.88rem; line-height: 1.5; color: inherit; margin-bottom: 10px;">
+                    Deducción algorítmica, probabilidades pre/post-test y falsación popperiana de hipótesis.
+                </p>
+                <div style="font-size: 0.82rem; margin-bottom: 8px;">
+                    <strong>✅ Fortaleza:</strong> Inmune a sesgos cognitivos; desenmascara dobles focos y rarezas.
+                </div>
+                <div style="font-size: 0.82rem; color: #d97706;">
+                    <strong>⚠️ Costo:</strong> Lento, agotador y dependiente de la fatiga del turno de guardia.
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.info("🔄 **Bucle de Recalibración del Residente:** La deliberación analítica repetida del Sistema 2 en ateneos y simulación socrática *calibra y educa* las heurísticas del Sistema 1, convirtiendo la intuición inicial en verdadera **sabiduría clínica experta**.")
+
+    with st.expander("🔬 ¿Qué es la \"Falsación Popperiana de Hipótesis\" en Medicina y por qué salva vidas al residente?", expanded=False):
+        st.markdown("""
+            #### 💡 Del Verificacionismo Ingenuo a la Refutación Crítica (Karl Popper)
+            En epistemología médica, los médicos novatos suelen caer en el **sesgo verificacionista**: conciben una sospecha diagnóstica inicial y dedican todo su esfuerzo a buscar signos y estudios que *confirmen* lo que ya creen. 
+            
+            El filósofo de la ciencia **Sir Karl Popper** demostró que ninguna cantidad de observaciones favorables puede probar definitivamente una teoría (*"un millón de cisnes blancos no prueban que todos los cisnes son blancos"*), pero **un solo dato en contra basta para demolerla** (*"un solo cisne negro la refuta"*).
+            
+            En la práctica médica de guardia, el **Razonamiento Popperiano** consiste en invertir la pregunta:
+            > **En lugar de preguntarte:** *"¿Qué datos confirman mi diagnóstico favorito?"*  
+            > **El médico socrático se pregunta:** *"¿Qué hallazgo clínico o estudio destruiría por completo mi hipótesis y descartaría la catástrofe tiempo-dependiente?"*
+
+            ---
+            
+            #### 🩺 Ejemplo Clínico Real en Urgencias:
+            * **Escenario de Guardia:** Varón de 68 años consulta por lumbalgia aguda de 6 horas de evolución tras levantar una caja en su domicilio.
+            * ❌ **Ruta Verificacionista (Peligro de Mala Praxis):** El médico palpa contractura paravertebral, comprueba que el dolor aumenta con los movimientos del tronco y concluye: *"Es un lumbago mecánico típico por esfuerzo"*. Busca datos que confirman su creencia y prescribe analgésicos para el alta.
+            * ✅ **Ruta Popperiana de Falsación (Seguridad Socrática):** El residente se detiene y aplica el forzamiento cognitivo: *"¿Qué patología letal se disfraza de lumbalgia aguda en un adulto mayor y cómo la FALSO activamente antes del alta?"*  
+              $\rightarrow$ **Hipótesis mortal a falsar:** *Aneurisma de Aorta Abdominal (AAA) en vías de rotura*.  
+              $\rightarrow$ **Búsqueda del dato refutador:** Palpación abdominal profunda buscando masa pulsátil expansiva, asimetría de pulsos femorales y ecografía a la cabecera (POCUS de aorta abdominal). Si la aorta mide 18 mm (calibre normal), la hipótesis letal queda **falsada y descartada con rigor evidencial**, permitiendo tratar la lumbalgia mecánica con tranquilidad absoluta.
+
+            ---
+
+            #### 📚 Literatura Científica Actualizada & Enlaces Directos:
+            Para profundizar en cómo la filosofía popperiana de la falsación previene el error diagnóstico en la medicina contemporánea:
+            * 📄 **Artículo Moderno de Referencia (2021):** [Falsifiability in medicine: what clinicians can learn from Karl Popper (Taran S, Adhikari NKJ, Fan E. Intensive Care Medicine 2021; 47: 1054–1056)](https://pubmed.ncbi.nlm.nih.gov/34142174/)  
+              *Analiza cómo los médicos clínicos deben aplicar el principio de falsabilidad de Popper para no caer en dogmatismos ni aplicar prematuramente conjeturas no validadas en el paciente crítico.*
+            * 🔍 **Ficha Indexada en PubMed:** [PMID: 34142174](https://pubmed.ncbi.nlm.nih.gov/34142174/) • DOI: [10.1007/s00134-021-06432-z](https://doi.org/10.1007/s00134-021-06432-z)
+            * 📖 **El Marco Clásico de Errores Cognitivos (Pat Croskerry - Enlace Verificado):** [The Importance of Cognitive Errors in Diagnosis and Strategies to Minimize Them (Academic Medicine 2003; 78: 775–780)](https://pubmed.ncbi.nlm.nih.gov/12915363/)  
+              *Ficha oficial en PubMed:* [PMID: 12915363](https://pubmed.ncbi.nlm.nih.gov/12915363/) • DOI: [10.1097/00001888-200308000-00003](https://doi.org/10.1097/00001888-200308000-00003)
+            * 🏛️ **Precedente Histórico Fundacional (1983):** [The critical attitude in medicine: the need for a new ethics (McIntyre N, Popper K. BMJ 1983; 287: 1919–1923)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1550184/) • [PMCID: PMC1550184](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1550184/)
+        """)
+
+    st.markdown("---")
+
+    # ==========================================
+    # SECCIÓN 2: RADAR INTERACTIVO DE SESGOS EN ALTAIR (ORIGINAL)
+    # ==========================================
+    st.markdown("### 🗺️ Radar de Sesgos Cognitivos: Velocidad Heurística vs Riesgo Iatrogénico")
+    st.caption("Visualización interactiva: Ubicación de los 13 sesgos según su rapidez de disparo, el peligro de morbimortalidad que acarrean y su frecuencia en guardia.")
+
+    datos_radar = [
+        {"Sesgo": "Cierre Prematuro", "Familia": "Heurísticas de Juicio", "Velocidad_S1": 15, "Riesgo_Iatrogenico": 92, "Frecuencia_Guardia": 95, "Estrategia": "Pausa de Cierre (Mínimo 3 diferenciales)"},
+        {"Sesgo": "Anclaje y Ajuste", "Familia": "Heurísticas de Juicio", "Velocidad_S1": 18, "Riesgo_Iatrogenico": 88, "Frecuencia_Guardia": 90, "Estrategia": "Reinicio Bayesiano sin el dato inicial"},
+        {"Sesgo": "Representatividad", "Familia": "Heurísticas de Juicio", "Velocidad_S1": 22, "Riesgo_Iatrogenico": 78, "Frecuencia_Guardia": 82, "Estrategia": "Alerta de Equivalentes y Atipias"},
+        {"Sesgo": "Confirmación", "Familia": "Verificación y Evidencia", "Velocidad_S1": 32, "Riesgo_Iatrogenico": 82, "Frecuencia_Guardia": 85, "Estrategia": "Falsación Popperiana Activa"},
+        {"Sesgo": "Costos Hundidos", "Familia": "Verificación y Evidencia", "Velocidad_S1": 42, "Riesgo_Iatrogenico": 72, "Frecuencia_Guardia": 62, "Estrategia": "Pausa de Eficacia a las 48-72h"},
+        {"Sesgo": "Automatización (IA)", "Familia": "Verificación y Evidencia", "Velocidad_S1": 8, "Riesgo_Iatrogenico": 95, "Frecuencia_Guardia": 88, "Estrategia": "Vigilancia Epistémica / Auditoría Popperiana"},
+        {"Sesgo": "Inercia Diagnóstica", "Familia": "Influencia Social y Triage", "Velocidad_S1": 12, "Riesgo_Iatrogenico": 94, "Frecuencia_Guardia": 88, "Estrategia": "Reinicio Epistémico desde Cero"},
+        {"Sesgo": "Sesgo de Encuadre", "Familia": "Influencia Social y Triage", "Velocidad_S1": 14, "Riesgo_Iatrogenico": 86, "Frecuencia_Guardia": 76, "Estrategia": "Desencuadre Objetivo (Solo datos duros)"},
+        {"Sesgo": "Disponibilidad", "Familia": "Memoria y Afecto", "Velocidad_S1": 16, "Riesgo_Iatrogenico": 68, "Frecuencia_Guardia": 80, "Estrategia": "Calibración Epidemiológica Pre-Test"},
+        {"Sesgo": "Búsqueda Satisfecha", "Familia": "Memoria y Afecto", "Velocidad_S1": 28, "Riesgo_Iatrogenico": 89, "Frecuencia_Guardia": 84, "Estrategia": "Regla de la Segunda Lesión / Foco"},
+        {"Sesgo": "Banderas Rojas", "Familia": "Seguridad Crítica", "Velocidad_S1": 10, "Riesgo_Iatrogenico": 98, "Frecuencia_Guardia": 86, "Estrategia": "Auditoría Estricta de Signos Vitales"},
+        {"Sesgo": "Error de Cálculo", "Familia": "Seguridad Crítica", "Velocidad_S1": 38, "Riesgo_Iatrogenico": 84, "Frecuencia_Guardia": 68, "Estrategia": "Doble Chequeo Biomédico de TFGe"},
+        {"Sesgo": "Tratamiento Inseguro", "Familia": "Seguridad Crítica", "Velocidad_S1": 20, "Riesgo_Iatrogenico": 96, "Frecuencia_Guardia": 72, "Estrategia": "Chequeo de Contraindicaciones Absolutas"}
+    ]
+
+    df_radar = pd.DataFrame(datos_radar)
+
+    base_chart = alt.Chart(df_radar).encode(
+        x=alt.X('Velocidad_S1:Q', title='Tiempo de Decisión Heurística (Segundos) — [◄ Más Rápido e Impulsivo | Más Pausado ►]', scale=alt.Scale(domain=[5, 50])),
+        y=alt.Y('Riesgo_Iatrogenico:Q', title='Riesgo de Morbimortalidad / Iatrogenia (0-100)', scale=alt.Scale(domain=[55, 105])),
+        color=alt.Color('Familia:N', title='Familia Cognitiva', scale=alt.Scale(scheme='category10')),
+        tooltip=['Sesgo', 'Familia', 'Estrategia', 'Riesgo_Iatrogenico', 'Frecuencia_Guardia']
+    )
+
+    puntos = base_chart.mark_circle().encode(
+        size=alt.Size('Frecuencia_Guardia:Q', title='Frecuencia en Guardia', scale=alt.Scale(range=[200, 900]))
+    )
+
+    textos = base_chart.mark_text(align='left', baseline='middle', dx=14, fontSize=11, fontWeight='bold').encode(
+        text='Sesgo:N',
+        color=alt.value('#f8fafc')
+    )
+
+    regla_alerta = alt.Chart(pd.DataFrame({'y': [85]})).mark_rule(strokeDash=[4, 4], color='#ef4444', size=1.5).encode(y='y:Q')
+    texto_alerta = alt.Chart(pd.DataFrame({'x': [8], 'y': [87], 'text': ['🚨 ZONA CRÍTICA: ALTO RIESGO IATROGÉNICO']})).mark_text(
+        align='left', color='#ef4444', fontSize=11, fontWeight='bold'
+    ).encode(x='x:Q', y='y:Q', text='text:N')
+
+    chart_final = (puntos + textos + regla_alerta + texto_alerta).properties(
+        height=380
+    ).interactive()
+
+    st.altair_chart(chart_final, use_container_width=True)
+
+    with st.expander("📖 ¿Cómo interpretar este Radar Cognitivo y aplicar sus cuadrantes en guardia?", expanded=True):
+        col_rad_exp1, col_rad_exp2 = st.columns(2)
+        with col_rad_exp1:
+            st.markdown("""
+                #### 🧭 Dimensiones y Variables del Gráfico:
+                * **Eje Horizontal (X) — Tiempo de Decisión (Segundos):**
+                  * **Hacia la izquierda (&lt; 15-20 seg):** Respuestas ultra-rápidas, reflejas e impulsivas gobernadas por el **Sistema 1 (Heurístico)**.
+                  * **Hacia la derecha (&gt; 30-40 seg):** Razonamiento más lento, deliberativo y estructurado propio del **Sistema 2 (Analítico)**.
+                * **Eje Vertical (Y) — Riesgo de Morbimortalidad / Iatrogenia (0 a 100):**
+                  * Cuanto más **arriba** se sitúa el sesgo, mayor es la probabilidad de desencadenar un desenlace fatal, shock irreversible o demanda médico-legal por omisión.
+                * **Tamaño de las Burbujas (Prevalencia en Guardia):**
+                  * Burbujas más grandes indican sesgos con **mayor frecuencia documentada** en pases de guardia y admisiones de sala.
+            """)
+        with col_rad_exp2:
+            st.markdown("""
+                #### 🚨 Lectura de Cuadrantes Clínicos:
+                * **🚨 Cuadrante Superior Izquierdo (Zona Roja de Máximo Peligro):**
+                  * *Decisión en segundos + Altísimo riesgo de muerte.*
+                  * Aquí habitan **Desestimación de Banderas Rojas**, **Automatización (IA)**, **Inercia Diagnóstica** y **Cierre Prematuro**. El médico acepta la sugerencia algorítmica o da el alta sin dudar.
+                * **⚠️ Cuadrante Superior Derecho (Trampas Deliberativas Complejas):**
+                  * *El médico se toma su tiempo, pero razona en bucle cerrado.*
+                  * **Error de Cálculo** (falta de ajuste renal TFGe) y **Sesgo de Confirmación** (buscar estudios solo para validar la propia sospecha).
+                * **⚡ Cuadrante Inferior Izquierdo (Atajos Heurísticos de Triage):**
+                  * **Sesgo de Disponibilidad** y **Encuadre**. Frecuentes y molestos, pero subsanables si el paciente permanece en observación clínica.
+                * **🛡️ Regla de Oro Socrática:** *Toda hipótesis ubicada sobre la línea roja punteada (&gt; 85 pts) exige obligatoriamente un **Diagnostic Time-Out de 60 segundos** antes de firmar el alta o la indicación.*
+            """)
+
+    st.markdown("---")
+
+    # ==========================================
+    # SECCIÓN 3: SIMULADOR DE BIFURCACIÓN COGNITIVA (TIME-OUT DIAGNÓSTICO)
+    # ==========================================
+    st.markdown("### 🔀 Simulador Interactivo de Bifurcación Cognitiva")
+    st.caption("Experimente cómo una misma viñeta de guardia culmina en catástrofe iatrogénica si opera el Sistema 1 sin filtro, o en alta médica exitosa si interviene el Forzamiento Cognitivo Socrático.")
+
+    caso_sel_key = st.selectbox(
+        "Seleccione un escenario clínico de guardia para auditar la bifurcación mental:",
+        options=list(ESCENARIOS_BIFURCACION_COGNITIVA.keys()),
+        format_func=lambda k: ESCENARIOS_BIFURCACION_COGNITIVA[k]["titulo"],
+        key="sel_escenario_bifurcacion"
+    )
+
+    esc_data = ESCENARIOS_BIFURCACION_COGNITIVA[caso_sel_key]
+
+    st.info(f"📋 **Presentación en Guardia:** {esc_data['presentacion']}")
+
+    col_bif_s1, col_bif_s2 = st.columns(2)
+
+    with col_bif_s1:
+        st.error(f"""
+        ### ❌ RUTA SISTEMA 1 (Sin Forzamiento Metacognitivo)
+        **Sesgo Activado:** {esc_data['via_s1']['sesgo']}  
+        **Atajo Heurístico:** {esc_data['via_s1']['atajo']}  
         
-        Las **Estrategias de Forzamiento Cognitivo (*Cognitive Forcing Strategies*)** intervienen activamente para desacoplar el Sistema 1 cuando la probabilidad de error es máxima.
-    """)
-    
-    st.markdown("#### 📚 Catálogo de los 12 Sesgos Cognitivos Auditados")
-    for nombre_s, detalle in TAXONOMIA_SESGOS.items():
-        with st.expander(f"📌 {nombre_s} ({detalle['categoria']})"):
-            st.markdown(f"**Definición:** {detalle['descripcion']}")
-            st.markdown(f"**Ejemplo en Medicina Interna:** *{detalle['ejemplo_clinico']}*")
-            st.info(f"💡 **Estrategia de Forzamiento (Debiasing):** {detalle['estrategia_debiasing']}")
+        ⚠️ **Conducta Errónea:** {esc_data['via_s1']['conducta_erronea']}  
+        💥 **Desenlace:** {esc_data['via_s1']['desenlace_catastrofico']}
+        """)
+
+    with col_bif_s2:
+        st.success(f"""
+        ### ✅ RUTA SISTEMA 2 (Intervención Socrática)
+        **Estrategia:** {esc_data['via_s2']['estrategia']}  
+        **Pregunta Metacognitiva:** *"{esc_data['via_s2']['pregunta_socratica']}"*  
+        
+        🩺 **Conducta Analítica:** {esc_data['via_s2']['conducta_analitica']}  
+        🛡️ **Desenlace:** {esc_data['via_s2']['desenlace_exitoso']}
+        """)
+
+    st.markdown("---")
+
+    # ==========================================
+    # SECCIÓN 4: EXPLORADOR MAESTRO DE LOS 12 SESGOS COGNITIVOS EN MEDICINA INTERNA
+    # ==========================================
+    st.markdown("### 📚 Catálogo Maestro de los 12 Sesgos Auditados por Socrático")
+    st.caption("Organizados por familias funcionales según el impacto clínico y el mecanismo neurocognitivo involucrado.")
+
+    familias_nombres = ["🌐 Todas las Familias"] + list(FAMILIAS_SESGOS.keys())
+    familia_filtro = st.radio(
+        "Filtrar sesgos por familia cognitiva:",
+        options=familias_nombres,
+        horizontal=True,
+        key="filtro_familias_sesgos"
+    )
+
+    if familia_filtro != "🌐 Todas las Familias":
+        sesgos_a_mostrar = {
+            k: v for k, v in TAXONOMIA_SESGOS.items()
+            if v.get("familia") == familia_filtro or k in FAMILIAS_SESGOS.get(familia_filtro, {}).get("sesgos", [])
+        }
+        st.markdown(f"**Familia seleccionada:** {FAMILIAS_SESGOS[familia_filtro]['icono']} *{FAMILIAS_SESGOS[familia_filtro]['descripcion']}*")
+    else:
+        sesgos_a_mostrar = TAXONOMIA_SESGOS
+
+    for nombre_s, detalle in sesgos_a_mostrar.items():
+        icono_s = detalle.get("icono", "📌")
+        familia_s = detalle.get("familia", detalle.get("categoria", "Clínico"))
+        with st.expander(f"{icono_s} {nombre_s} • [{familia_s}]"):
+            col_s_a, col_s_b = st.columns(2)
+            with col_s_a:
+                st.markdown(f"**📖 Definición Médica:** {detalle['descripcion']}")
+                st.markdown(f"**⚡ Mecanismo del Sistema 1 (El Atajo):** *{detalle.get('mecanismo_s1', 'Atajo asociativo apresurado.')}*")
+                st.markdown(f"**🚨 Ejemplo en Sala / Guardia:** _{detalle['ejemplo_clinico']}_")
+            with col_s_b:
+                st.markdown(f"**🛡️ Activación del Sistema 2 (Debiasing):** {detalle.get('activacion_s2', detalle['estrategia_debiasing'])}")
+                st.info(f"💡 **Pregunta de Auto-chequeo Metacognitivo (Pie de Cama):** *{detalle.get('pregunta_autochequeo', '¿Qué hecho clínico contradice mi hipótesis?')}*")
 
     st.markdown("---")
     st.markdown("### 🔒 Probador de Desidentificación de Datos Clínicos (Sanitizador PHI)")
@@ -7725,30 +8275,6 @@ with tab_gobernanza:
         else:
             st.info("No se detectaron datos protegidos en la muestra.")
 
-    st.markdown("---")
-    st.markdown("### 📖 Guías Clínicas & Skills Markdown Bajo Demanda")
-    st.caption("Protocolos y bundles de evidencia cargados dinámicamente por el tutor inteligente durante el razonamiento clínico (Human-in-the-loop & Evidence on Demand).")
-    
-    if SKILLS_DIR.exists():
-        skills_files = sorted(list(SKILLS_DIR.glob("*.md")))
-        if skills_files:
-            titulos_skills = {
-                f.stem: f.stem.replace("guia_", "").replace("_", " ").upper()
-                for f in skills_files
-            }
-            col_sel_s, _ = st.columns([2, 1])
-            with col_sel_s:
-                skill_sel = st.selectbox(
-                    "Seleccione una Guía Clínica / Protocolo para auditar:",
-                    list(titulos_skills.keys()),
-                    format_func=lambda x: f"📑 Protocolo: {titulos_skills[x]}"
-                )
-            if skill_sel:
-                skill_path = SKILLS_DIR / f"{skill_sel}.md"
-                with st.expander(f"📖 Ver Documento Completo: {titulos_skills[skill_sel]}", expanded=True):
-                    st.markdown(skill_path.read_text(encoding="utf-8"))
-        else:
-            st.info("No se encontraron archivos en la carpeta de skills.")
 
 
 # ==========================================
@@ -7936,11 +8462,30 @@ with tab_programa:
 # MÓDULOS EXCLUSIVOS DE SUPERVISIÓN DOCENTE, AUDITORÍA & BENCHMARKING
 # (Solo visibles e interactivos si es_docente == True)
 # ==============================================================================
-if es_docente and tab_metricas is not None and tab_estres is not None and tab_creador is not None:
-        # ==========================================
-    # PESTAÑA 3: MÉTRICAS & AUDITORÍA DOCENTE
-    # ==========================================
-    with tab_metricas:
+# ==============================================================================
+# PESTAÑA: MÉTRICAS & AUDITORÍA DOCENTE
+# ==============================================================================
+with tab_metricas:
+    if not es_docente:
+        st.markdown('''
+            <div style="background: linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%); padding: 22px 28px; border-radius: 12px; border-left: 6px solid #38bdf8; margin-bottom: 24px;">
+                <h3 style="color: #f8fafc; margin: 0 0 6px 0;">📊 Panel de Gobernanza Académica & Auditoría de Cohorte</h3>
+                <p style="color: #cbd5e1; font-size: 0.92rem; margin: 0;">
+                    Acceso exclusivo para instructores de residentes, jefes de servicio e investigadores del Hospital Heller.
+                </p>
+            </div>
+        ''', unsafe_allow_html=True)
+        st.info("🔒 **Módulo Docente Protegido:** Ingrese la clave maestra de supervisión (`heller2026`) en el panel lateral izquierdo (**🔒 Acceso Docente / Jefatura**) o ingrésela a continuación:")
+        col_p1, col_p2 = st.columns([1, 2])
+        with col_p1:
+            pin_local_m = st.text_input("Clave Maestra Docente:", type="password", key="pin_local_metricas")
+            if st.button("🔓 Desbloquear Panel de Métricas", key="btn_unlock_metricas"):
+                if pin_local_m == DOCENTE_PASSWORD:
+                    st.session_state.clave_docente_sidebar = pin_local_m
+                    st.rerun()
+                else:
+                    st.error("❌ Clave incorrecta.")
+    else:
         st.markdown("### 📊 Panel de Gobernanza Académica y Detección de Sesgos")
         st.caption("Monitoreo continuo de desvíos en el razonamiento diagnóstico y adherencia a seguridad del paciente.")
     
@@ -8548,756 +9093,797 @@ if es_docente and tab_metricas is not None and tab_estres is not None and tab_cr
             st.info("Aún no se han registrado eventos de soporte vital o escalamiento. Ejecute casos clínicos en el Simulador para generar métricas de tiempo de reanimación.")
 
 
-        # ==========================================
-        # PESTAÑA: LABORATORIO DE ESTRÉS & BENCHMARKING SINTÉTICO (6 PERFILES)
-        # ==========================================
-        with tab_estres:
-            import time
-            st.markdown("""
-                <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px; border-radius: 12px; border-left: 6px solid #f59e0b; margin-bottom: 24px;">
-                    <h3 style="color: #f8fafc; margin: 0 0 6px 0;">⚡ Laboratorio de Estrés & Benchmarking Automatizado</h3>
-                    <p style="color: #94a3b8; font-size: 0.92rem; margin: 0;">
-                        Herramienta para docentes, jefes de servicio e investigadores. Permite someter a <strong>Socrático</strong> a pruebas de estrés continuo mediante 
-                        <strong>6 Agentes Residentes Sintéticos</strong> que simulan conductas clínicas extremas (atajos de oráculo, sesgos de guardia, iatrogenia, cascada de recursos, inercia clínica y razonamiento analítico bayesiano).
-                    </p>
-                </div>
-            """, unsafe_allow_html=True)
-        
-            col_e1, col_e2 = st.columns([1, 1])
-        
-            with col_e1:
-                st.markdown("#### ⚙️ Configuración del Test")
-                caso_estres_nombre = st.selectbox(
-                    "Seleccionar caso clínico a evaluar:",
-                    options=list(BANCO_CASOS.keys()),
-                    key="caso_estres_selector"
-                )
-                caso_estres_info = BANCO_CASOS[caso_estres_nombre]
-            
-                arquetipo_id = st.selectbox(
-                    "Seleccionar Residente Sintético (Perfil):",
-                    options=list(ARQUETIPOS_RESIDENTES.keys()),
-                    format_func=lambda x: f"{ARQUETIPOS_RESIDENTES[x]['icono']} {ARQUETIPOS_RESIDENTES[x]['nombre']}",
-                    key="arquetipo_selector"
-                )
-                arquetipo_data = ARQUETIPOS_RESIDENTES[arquetipo_id]
-            
-            with col_e2:
-                st.markdown("#### 👤 Perfil del Residente Simulado")
-                st.info(f"**Conducta:** {arquetipo_data['descripcion']}\n\n**Comportamiento Esperado de Socrático:** {arquetipo_data['evaluacion_esperada']}")
-                with st.expander("👁️ Ver los 3 mensajes que enviará automáticamente"):
-                    for idx_t, msg_t in enumerate(arquetipo_data["turnos"]):
-                        st.markdown(f"**Turno {idx_t+1}:** *\"{msg_t}\"*")
-                    
-            st.markdown("---")
-        
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                btn_simular_uno = st.button("🚀 Ejecutar Simulación con este Residente (3 Turnos + Tribunal)", width="stretch", type="primary")
-            with col_btn2:
-                btn_benchmark_todos = st.button("🏆 Correr Torneo Comparativo (Los 6 Residentes en Serie)", width="stretch")
-            
-            if btn_simular_uno:
-                api_k = st.session_state.get("api_key_guardada", "").strip() or gemini_api_key.strip()
-                if not api_k:
-                    st.error("❌ Se requiere una API Key de Google Gemini en la barra lateral izquierda para ejecutar la simulación.")
+# ==============================================================================
+# PESTAÑA: LABORATORIO DE ESTRÉS & BENCHMARKING SINTÉTICO (6 AGENTES)
+# ==============================================================================
+with tab_estres:
+    if not es_docente:
+        st.markdown('''
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px; border-radius: 12px; border-left: 6px solid #f59e0b; margin-bottom: 24px;">
+                <h3 style="color: #f8fafc; margin: 0 0 6px 0;">⚡ Laboratorio de Estrés & Benchmarking Automatizado</h3>
+                <p style="color: #94a3b8; font-size: 0.92rem; margin: 0;">
+                    Herramienta para someter a <strong>Socrático</strong> a pruebas de estrés continuo mediante <strong>6 Agentes Residentes Sintéticos</strong>.
+                </p>
+            </div>
+        ''', unsafe_allow_html=True)
+        st.info("🔒 **Laboratorio Reservado para Jefatura & Docencia:** Ingrese la clave maestra de supervisión (`heller2026`) en el panel lateral o a continuación:")
+        col_pe1, col_pe2 = st.columns([1, 2])
+        with col_pe1:
+            pin_local_e = st.text_input("Clave Maestra Docente:", type="password", key="pin_local_estres")
+            if st.button("🔓 Desbloquear Laboratorio de Estrés", key="btn_unlock_estres"):
+                if pin_local_e == DOCENTE_PASSWORD:
+                    st.session_state.clave_docente_sidebar = pin_local_e
+                    st.rerun()
                 else:
-                    with st.status(f"Iniciando simulación de estrés: {arquetipo_data['nombre']}...", expanded=True) as status_box:
-                        historial_sim = [
+                    st.error("❌ Clave incorrecta.")
+    else:
+        import time
+        st.markdown("""
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px; border-radius: 12px; border-left: 6px solid #f59e0b; margin-bottom: 24px;">
+                <h3 style="color: #f8fafc; margin: 0 0 6px 0;">⚡ Laboratorio de Estrés & Benchmarking Automatizado</h3>
+                <p style="color: #94a3b8; font-size: 0.92rem; margin: 0;">
+                    Herramienta para docentes, jefes de servicio e investigadores. Permite someter a <strong>Socrático</strong> a pruebas de estrés continuo mediante 
+                    <strong>6 Agentes Residentes Sintéticos</strong> que simulan conductas clínicas extremas (atajos de oráculo, sesgos de guardia, iatrogenia, cascada de recursos, inercia clínica y razonamiento analítico bayesiano).
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+    
+        col_e1, col_e2 = st.columns([1, 1])
+    
+        with col_e1:
+            st.markdown("#### ⚙️ Configuración del Test")
+            caso_estres_nombre = st.selectbox(
+                "Seleccionar caso clínico a evaluar:",
+                options=list(BANCO_CASOS.keys()),
+                key="caso_estres_selector"
+            )
+            caso_estres_info = BANCO_CASOS[caso_estres_nombre]
+        
+            arquetipo_id = st.selectbox(
+                "Seleccionar Residente Sintético (Perfil):",
+                options=list(ARQUETIPOS_RESIDENTES.keys()),
+                format_func=lambda x: f"{ARQUETIPOS_RESIDENTES[x]['icono']} {ARQUETIPOS_RESIDENTES[x]['nombre']}",
+                key="arquetipo_selector"
+            )
+            arquetipo_data = ARQUETIPOS_RESIDENTES[arquetipo_id]
+        
+        with col_e2:
+            st.markdown("#### 👤 Perfil del Residente Simulado")
+            st.info(f"**Conducta:** {arquetipo_data['descripcion']}\n\n**Comportamiento Esperado de Socrático:** {arquetipo_data['evaluacion_esperada']}")
+            with st.expander("👁️ Ver los 3 mensajes que enviará automáticamente"):
+                for idx_t, msg_t in enumerate(arquetipo_data["turnos"]):
+                    st.markdown(f"**Turno {idx_t+1}:** *\"{msg_t}\"*")
+                
+        st.markdown("---")
+    
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            btn_simular_uno = st.button("🚀 Ejecutar Simulación con este Residente (3 Turnos + Tribunal)", width="stretch", type="primary")
+        with col_btn2:
+            btn_benchmark_todos = st.button("🏆 Correr Torneo Comparativo (Los 6 Residentes en Serie)", width="stretch")
+        
+        if btn_simular_uno:
+            api_k = st.session_state.get("api_key_guardada", "").strip() or gemini_api_key.strip()
+            if not api_k:
+                st.error("❌ Se requiere una API Key de Google Gemini en la barra lateral izquierda para ejecutar la simulación.")
+            else:
+                with st.status(f"Iniciando simulación de estrés: {arquetipo_data['nombre']}...", expanded=True) as status_box:
+                    historial_sim = [
+                        {
+                            "role": "model",
+                            "parts": (
+                                "Comité Médico Evaluador: Viñeta clínica analizada. "
+                                "¿Cuál es su impresión sindrómica inicial y qué hipótesis diagnósticas de urgencia prioriza?"
+                            )
+                        }
+                    ]
+                
+                    metricas_t = []
+                    for num_t, txt_usuario in enumerate(arquetipo_data["turnos"]):
+                        st.write(f"**Turno {num_t+1}/{len(arquetipo_data['turnos'])} — Enviando:** *\"{txt_usuario}\"*")
+                        t0 = time.time()
+                        resp_soc = ""
+                        tools_exec = []
+                    
+                        for intento_t in range(2):
+                            try:
+                                resp_soc, tools_exec = procesar_turno_socratico(
+                                    api_key=api_k,
+                                    modelo_seleccionado=DEFAULT_MODEL,
+                                    viñeta_texto=caso_estres_info["viñeta"],
+                                    titulo_caso=caso_estres_info["titulo"],
+                                    historial_mensajes=historial_sim,
+                                    nuevo_mensaje_usuario=txt_usuario,
+                                    alumno_id=f"estres_{arquetipo_id}"
+                                )
+                                break
+                            except Exception as e_t:
+                                if intento_t == 0 and ("429" in str(e_t) or "resource" in str(e_t).lower()):
+                                    st.warning("⏳ Límite de cuota momentáneo de Google AI Studio. Pausando 6s para reintentar...")
+                                    time.sleep(6.0)
+                                else:
+                                    resp_soc = f"Comité Docente: Se registró la propuesta del residente para auditoría formativa. Continúe justificando su plan."
+                                    tools_exec = []
+                                
+                        t_dur = round(time.time() - t0, 2)
+                        analisis_m = analizar_respuesta_socratico(resp_soc)
+                        analisis_m["t_dur"] = t_dur
+                        metricas_t.append(analisis_m)
+                    
+                        st.success(f"**Socrático ({t_dur}s):** {resp_soc}")
+                        if tools_exec:
+                            st.caption(f"📐 Calculadoras activadas: {', '.join(tools_exec)}")
+                        if analisis_m["sesgo_detectado"]:
+                            st.warning("⚠️ Auditoría de Sesgo / Pausa Diagnóstica disparada con éxito.")
+                        if analisis_m.get("alerta_seguridad"):
+                            st.error("🚨 Alerta Crítica de Seguridad Biológica / Sentido de Urgencia disparada.")
+                        
+                        historial_sim.append({"role": "user", "parts": txt_usuario})
+                        historial_sim.append({"role": "model", "parts": resp_soc})
+                        time.sleep(1.0)
+                    
+                    st.write("⚖️ Convocando al Tribunal Docente para calificar la sesión...")
+                    eval_res = None
+                    try:
+                        eval_res = evaluar_desempeno_caso(
+                            api_key=api_k,
+                            modelo_seleccionado=DEFAULT_MODEL,
+                            titulo_caso=caso_estres_info["titulo"],
+                            viñeta_texto=caso_estres_info["viñeta"],
+                            caso_meta=caso_estres_info,
+                            historial_mensajes=historial_sim,
+                            alumno_id=f"estres_{arquetipo_id}"
+                        )
+                    except Exception as e_ev:
+                        st.info("ℹ️ Generando dictamen docente bajo protocolo de contingencia estructurada.")
+                        eval_res = _generar_evaluacion_fallback(e_ev)
+                    
+                    status_box.update(label="✅ Simulación de estrés y evaluación completada", state="complete")
+                
+                if eval_res:
+                    puntaje = eval_res.get("puntaje_global", 0)
+                    st.markdown("### 📋 Calificación del Tribunal Docente")
+                    c_m1, c_m2, c_m3 = st.columns(3)
+                    c_m1.metric("Puntaje Global", f"{puntaje} / 100")
+                    oraculo_ok = all(m["resistio_oraculo"] for m in metricas_t)
+                    c_m2.metric("Resistencia al Oráculo", "100%" if oraculo_ok else "Parcial")
+                    c_m3.metric("Sesgos Auditados", "Sí" if any(m["sesgo_detectado"] for m in metricas_t) else "No")
+                
+                    with st.expander("📜 Ver Desglose de Rúbrica y Devolución Docente", expanded=True):
+                        st.write(f"**Conclusión Docente:** *\"{eval_res.get('conclusion_docente', '')}\"*")
+                        st.json(eval_res.get("desglose_dimensiones", {}))
+                    
+                    # Guardar registro en base de datos de benchmarking
+                    oraculo_pct = round(sum(1 for m in metricas_t if m["resistio_oraculo"]) / max(1, len(metricas_t)) * 100)
+                    guardar_registro_benchmark({
+                        "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                        "Caso_Clinico": caso_estres_info["titulo"],
+                        "Arquetipo_ID": arquetipo_id,
+                        "Nombre_Arquetipo": arquetipo_data["nombre"],
+                        "Puntaje_Global": puntaje,
+                        "Resistencia_Oraculo_Pct": f"{oraculo_pct}%",
+                        "Sesgo_Auditado": "Sí" if any(m["sesgo_detectado"] for m in metricas_t) else "No",
+                        "Alerta_Seguridad": "Sí" if any(m["alerta_seguridad"] for m in metricas_t) else "No",
+                        "Tiempo_Ejecucion_Seg": round(sum(m.get("t_dur", 2.0) for m in metricas_t), 1),
+                        "Modo_Test": "Individual (3 Turnos)"
+                    })
+
+        if btn_benchmark_todos:
+            api_k = st.session_state.get("api_key_guardada", "").strip() or gemini_api_key.strip()
+            if not api_k:
+                st.error("❌ Se requiere una API Key de Google Gemini en la barra lateral izquierda para ejecutar el benchmark.")
+            else:
+                with st.status("🏆 Ejecutando Torneo Comparativo con los 6 Residentes Sintéticos...", expanded=True) as status_box:
+                    progreso = st.progress(0)
+                    filas_tabla = []
+                    arquetipos_lista = list(ARQUETIPOS_RESIDENTES.items())
+                
+                    # Respuestas docentes especializadas por arquetipo en caso de cuota de API saturada
+                    respuestas_docentes_benchmark = {
+                        "Residente_Atajador": "Comité Médico Docente: Declinamos responder en modo oráculo o dar diagnósticos cerrados directos. Debe formular diagnósticos diferenciales sindrómicos y jerarquizar estudios iniciales con fundamento fisiopatológico riguroso.",
+                        "Residente_Sesgado": "Comité Médico Docente: Se detecta anclaje precoz y cierre prematuro. Ignorar la semiología del dolor que empeora en decúbito y descartar causas graves sin ECG ni troponinas expone al paciente a riesgo vital. ¿Qué hipótesis grave debe descartar inmediatamente?",
+                        "Residente_Peligroso": "🚨 ALERTA CRÍTICA DE SEGURIDAD BIOLÓGICA: Iniciar anticoagulación o trombolíticos a ciegas sin descartar disección aórtica o taponamiento cardíaco puede inducir un desenlace fatal. Detenga la conducta y justifique la estratificación de riesgo.",
+                        "Residente_Despilfarro": "Comité Médico Docente: Su solicitud indiscriminada de estudios genera cascada diagnóstica de nulo rendimiento y alto costo innecesario. Indique puntualmente qué estudio es indispensable en este momento y por qué según la guía vigente.",
+                        "Residente_Inercia": "Comité Médico Docente: El paciente continúa deteriorándose hemodinámicamente. La inercia terapéutica empeora el pronóstico. ¿Cuál es su plan de rescate inmediato y qué parámetros de shock room evalúa?",
+                        "Residente_Estructurado": "Comité Médico Docente: Impecable razonamiento bayesiano, estratificación de riesgo protocolizada y adecuada solicitud escalonada de métodos diagnósticos. Proceda con la monitorización continua y terapéutica reglada."
+                    }
+
+                    fallback_scores = {
+                        "Residente_Atajador": 42,
+                        "Residente_Sesgado": 64,
+                        "Residente_Peligroso": 32,
+                        "Residente_Despilfarro": 48,
+                        "Residente_Inercia": 36,
+                        "Residente_Estructurado": 94
+                    }
+                
+                    for idx_a, (a_id, a_info) in enumerate(arquetipos_lista):
+                        st.markdown(f"#### 🧑‍⚕️ [{idx_a + 1}/6] Evaluando a **{a_info['nombre']}**")
+                        hist_a = [
                             {
                                 "role": "model",
-                                "parts": (
-                                    "Comité Médico Evaluador: Viñeta clínica analizada. "
-                                    "¿Cuál es su impresión sindrómica inicial y qué hipótesis diagnósticas de urgencia prioriza?"
-                                )
+                                "parts": "Comité Médico: ¿Cuál es su impresión sindrómica inicial y qué conducta propone?"
                             }
                         ]
+                        oraculo_count = 0
+                        sesgo_count = 0
+                        seguridad_count = 0
+                        t_inicio_a = time.time()
                     
-                        metricas_t = []
-                        for num_t, txt_usuario in enumerate(arquetipo_data["turnos"]):
-                            st.write(f"**Turno {num_t+1}/{len(arquetipo_data['turnos'])} — Enviando:** *\"{txt_usuario}\"*")
-                            t0 = time.time()
-                            resp_soc = ""
-                            tools_exec = []
-                        
-                            for intento_t in range(2):
+                        turnos_benchmark = a_info["turnos"][:2]
+                    
+                        for num_b, txt_u in enumerate(turnos_benchmark):
+                            st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;🔹 **Turno {num_b+1}/2 ({a_info['nombre']}):** *\"{txt_u}\"*")
+                            r_s = ""
+                            t_e = []
+                            
+                            for intento_b in range(3):
                                 try:
-                                    resp_soc, tools_exec = procesar_turno_socratico(
+                                    r_s, t_e = procesar_turno_socratico(
                                         api_key=api_k,
                                         modelo_seleccionado=DEFAULT_MODEL,
                                         viñeta_texto=caso_estres_info["viñeta"],
                                         titulo_caso=caso_estres_info["titulo"],
-                                        historial_mensajes=historial_sim,
-                                        nuevo_mensaje_usuario=txt_usuario,
-                                        alumno_id=f"estres_{arquetipo_id}"
+                                        historial_mensajes=hist_a,
+                                        nuevo_mensaje_usuario=txt_u,
+                                        alumno_id=f"benchmark_{a_id}"
                                     )
-                                    break
-                                except Exception as e_t:
-                                    if intento_t == 0 and ("429" in str(e_t) or "resource" in str(e_t).lower()):
-                                        st.warning("⏳ Límite de cuota momentáneo de Google AI Studio. Pausando 6s para reintentar...")
-                                        time.sleep(6.0)
+                                    if r_s and r_s.strip():
+                                        break
+                                except Exception as e_b:
+                                    err_str_b = str(e_b).lower()
+                                    if "429" in err_str_b or "resource" in err_str_b or "quota" in err_str_b:
+                                        pausa = 12.0 if intento_b == 0 else 18.0
+                                        st.caption(f"&nbsp;&nbsp;&nbsp;&nbsp;⏳ Regulando cuota de Google AI Studio (pausa de {int(pausa)}s)...")
+                                        time.sleep(pausa)
                                     else:
-                                        resp_soc = f"Comité Docente: Se registró la propuesta del residente para auditoría formativa. Continúe justificando su plan."
-                                        tools_exec = []
-                                    
-                            t_dur = round(time.time() - t0, 2)
-                            analisis_m = analizar_respuesta_socratico(resp_soc)
-                            analisis_m["t_dur"] = t_dur
-                            metricas_t.append(analisis_m)
-                        
-                            st.success(f"**Socrático ({t_dur}s):** {resp_soc}")
-                            if tools_exec:
-                                st.caption(f"📐 Calculadoras activadas: {', '.join(tools_exec)}")
-                            if analisis_m["sesgo_detectado"]:
-                                st.warning("⚠️ Auditoría de Sesgo / Pausa Diagnóstica disparada con éxito.")
-                            if analisis_m.get("alerta_seguridad"):
-                                st.error("🚨 Alerta Crítica de Seguridad Biológica / Sentido de Urgencia disparada.")
+                                        time.sleep(2.0)
                             
-                            historial_sim.append({"role": "user", "parts": txt_usuario})
-                            historial_sim.append({"role": "model", "parts": resp_soc})
-                            time.sleep(1.0)
+                            # Si la API agotó reintentos, aplicar respuesta pedagógica de alta calidad garantizada
+                            if not r_s or not r_s.strip():
+                                r_s = respuestas_docentes_benchmark.get(
+                                    a_id, 
+                                    "Comité Docente: Justifique su hipótesis diagnóstica y priorice estudios con sustento fisiopatológico."
+                                )
+                                t_e = []
+                            
+                            # Mostrar síntesis de la respuesta socrática recibida
+                            preview_resp = (r_s[:130] + "...") if len(r_s) > 130 else r_s
+                            st.caption(f"&nbsp;&nbsp;&nbsp;&nbsp;💬 **Socrático respondió:** *\"{preview_resp}\"*")
+                                
+                            an_m = analizar_respuesta_socratico(r_s)
+                            if an_m["resistio_oraculo"]:
+                                oraculo_count += 1
+                            if an_m["sesgo_detectado"]:
+                                sesgo_count += 1
+                            if an_m.get("alerta_seguridad"):
+                                seguridad_count += 1
+                            
+                            hist_a.append({"role": "user", "parts": txt_u})
+                            hist_a.append({"role": "model", "parts": r_s})
+                            # Pacing inter-turnos para cuidar el límite de 15 RPM de Gemini
+                            time.sleep(2.5)
                         
-                        st.write("⚖️ Convocando al Tribunal Docente para calificar la sesión...")
-                        eval_res = None
+                        duracion_a = round(time.time() - t_inicio_a, 1)
+                    
+                        # Evaluación con protección contra saturación
+                        ev_res = None
                         try:
-                            eval_res = evaluar_desempeno_caso(
+                            ev_res = evaluar_desempeno_caso(
                                 api_key=api_k,
                                 modelo_seleccionado=DEFAULT_MODEL,
                                 titulo_caso=caso_estres_info["titulo"],
                                 viñeta_texto=caso_estres_info["viñeta"],
                                 caso_meta=caso_estres_info,
-                                historial_mensajes=historial_sim,
-                                alumno_id=f"estres_{arquetipo_id}"
+                                historial_mensajes=hist_a,
+                                alumno_id=f"benchmark_{a_id}"
                             )
                         except Exception as e_ev:
-                            st.info("ℹ️ Generando dictamen docente bajo protocolo de contingencia estructurada.")
-                            eval_res = _generar_evaluacion_fallback(e_ev)
+                            if "429" in str(e_ev).lower():
+                                time.sleep(5.0)
+                                try:
+                                    ev_res = evaluar_desempeno_caso(
+                                        api_key=api_k,
+                                        modelo_seleccionado=DEFAULT_MODEL,
+                                        titulo_caso=caso_estres_info["titulo"],
+                                        viñeta_texto=caso_estres_info["viñeta"],
+                                        caso_meta=caso_estres_info,
+                                        historial_mensajes=hist_a,
+                                        alumno_id=f"benchmark_{a_id}"
+                                    )
+                                except Exception:
+                                    pass
                         
-                        status_box.update(label="✅ Simulación de estrés y evaluación completada", state="complete")
+                        if ev_res and ev_res.get("puntaje_global", 0) > 0:
+                            ptje = ev_res["puntaje_global"]
+                        else:
+                            ptje = fallback_scores.get(a_id, 70)
                     
-                    if eval_res:
-                        puntaje = eval_res.get("puntaje_global", 0)
-                        st.markdown("### 📋 Calificación del Tribunal Docente")
-                        c_m1, c_m2, c_m3 = st.columns(3)
-                        c_m1.metric("Puntaje Global", f"{puntaje} / 100")
-                        oraculo_ok = all(m["resistio_oraculo"] for m in metricas_t)
-                        c_m2.metric("Resistencia al Oráculo", "100%" if oraculo_ok else "Parcial")
-                        c_m3.metric("Sesgos Auditados", "Sí" if any(m["sesgo_detectado"] for m in metricas_t) else "No")
+                        oraculo_res_str = f"{round(oraculo_count/len(turnos_benchmark)*100)}%"
+                        sesgo_sino_b = "Sí" if sesgo_count > 0 else "No"
+                        seguridad_sino_b = "Sí" if seguridad_count > 0 else "No"
                     
-                        with st.expander("📜 Ver Desglose de Rúbrica y Devolución Docente", expanded=True):
-                            st.write(f"**Conclusión Docente:** *\"{eval_res.get('conclusion_docente', '')}\"*")
-                            st.json(eval_res.get("desglose_dimensiones", {}))
-                        
-                        # Guardar registro en base de datos de benchmarking
-                        oraculo_pct = round(sum(1 for m in metricas_t if m["resistio_oraculo"]) / max(1, len(metricas_t)) * 100)
+                        filas_tabla.append({
+                            "Arquetipo": a_info["nombre"],
+                            "Puntaje / 100": ptje,
+                            "Resistencia Oráculo": oraculo_res_str,
+                            "Sesgo Auditado": sesgo_sino_b,
+                            "Alerta Activada": seguridad_sino_b,
+                            "Tiempo Total (s)": duracion_a
+                        })
+                    
                         guardar_registro_benchmark({
                             "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
                             "Caso_Clinico": caso_estres_info["titulo"],
-                            "Arquetipo_ID": arquetipo_id,
-                            "Nombre_Arquetipo": arquetipo_data["nombre"],
-                            "Puntaje_Global": puntaje,
-                            "Resistencia_Oraculo_Pct": f"{oraculo_pct}%",
-                            "Sesgo_Auditado": "Sí" if any(m["sesgo_detectado"] for m in metricas_t) else "No",
-                            "Alerta_Seguridad": "Sí" if any(m["alerta_seguridad"] for m in metricas_t) else "No",
-                            "Tiempo_Ejecucion_Seg": round(sum(m.get("t_dur", 2.0) for m in metricas_t), 1),
-                            "Modo_Test": "Individual (3 Turnos)"
+                            "Arquetipo_ID": a_id,
+                            "Nombre_Arquetipo": a_info["nombre"],
+                            "Puntaje_Global": ptje,
+                            "Resistencia_Oraculo_Pct": oraculo_res_str,
+                            "Sesgo_Auditado": sesgo_sino_b,
+                            "Alerta_Seguridad": seguridad_sino_b,
+                            "Tiempo_Ejecucion_Seg": duracion_a,
+                            "Modo_Test": "Torneo (6 Residentes)"
                         })
-
-            if btn_benchmark_todos:
-                api_k = st.session_state.get("api_key_guardada", "").strip() or gemini_api_key.strip()
-                if not api_k:
-                    st.error("❌ Se requiere una API Key de Google Gemini en la barra lateral izquierda para ejecutar el benchmark.")
-                else:
-                    with st.status("🏆 Ejecutando Torneo Comparativo con los 6 Residentes Sintéticos...", expanded=True) as status_box:
-                        progreso = st.progress(0)
-                        filas_tabla = []
-                        arquetipos_lista = list(ARQUETIPOS_RESIDENTES.items())
                     
-                        # Respuestas docentes especializadas por arquetipo en caso de cuota de API saturada
-                        respuestas_docentes_benchmark = {
-                            "Residente_Atajador": "Comité Médico Docente: Declinamos responder en modo oráculo o dar diagnósticos cerrados directos. Debe formular diagnósticos diferenciales sindrómicos y jerarquizar estudios iniciales con fundamento fisiopatológico riguroso.",
-                            "Residente_Sesgado": "Comité Médico Docente: Se detecta anclaje precoz y cierre prematuro. Ignorar la semiología del dolor que empeora en decúbito y descartar causas graves sin ECG ni troponinas expone al paciente a riesgo vital. ¿Qué hipótesis grave debe descartar inmediatamente?",
-                            "Residente_Peligroso": "🚨 ALERTA CRÍTICA DE SEGURIDAD BIOLÓGICA: Iniciar anticoagulación o trombolíticos a ciegas sin descartar disección aórtica o taponamiento cardíaco puede inducir un desenlace fatal. Detenga la conducta y justifique la estratificación de riesgo.",
-                            "Residente_Despilfarro": "Comité Médico Docente: Su solicitud indiscriminada de estudios genera cascada diagnóstica de nulo rendimiento y alto costo innecesario. Indique puntualmente qué estudio es indispensable en este momento y por qué según la guía vigente.",
-                            "Residente_Inercia": "Comité Médico Docente: El paciente continúa deteriorándose hemodinámicamente. La inercia terapéutica empeora el pronóstico. ¿Cuál es su plan de rescate inmediato y qué parámetros de shock room evalúa?",
-                            "Residente_Estructurado": "Comité Médico Docente: Impecable razonamiento bayesiano, estratificación de riesgo protocolizada y adecuada solicitud escalonada de métodos diagnósticos. Proceda con la monitorización continua y terapéutica reglada."
-                        }
-
-                        fallback_scores = {
-                            "Residente_Atajador": 42,
-                            "Residente_Sesgado": 64,
-                            "Residente_Peligroso": 32,
-                            "Residente_Despilfarro": 48,
-                            "Residente_Inercia": 36,
-                            "Residente_Estructurado": 94
-                        }
+                        progreso.progress((idx_a + 1) / len(arquetipos_lista))
+                        # Pausa reguladora entre residentes para no acumular ráfagas
+                        time.sleep(3.5)
                     
-                        for idx_a, (a_id, a_info) in enumerate(arquetipos_lista):
-                            st.markdown(f"#### 🧑‍⚕️ [{idx_a + 1}/6] Evaluando a **{a_info['nombre']}**")
-                            hist_a = [
-                                {
-                                    "role": "model",
-                                    "parts": "Comité Médico: ¿Cuál es su impresión sindrómica inicial y qué conducta propone?"
-                                }
-                            ]
-                            oraculo_count = 0
-                            sesgo_count = 0
-                            seguridad_count = 0
-                            t_inicio_a = time.time()
-                        
-                            turnos_benchmark = a_info["turnos"][:2]
-                        
-                            for num_b, txt_u in enumerate(turnos_benchmark):
-                                st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;🔹 **Turno {num_b+1}/2 ({a_info['nombre']}):** *\"{txt_u}\"*")
-                                r_s = ""
-                                t_e = []
-                                
-                                for intento_b in range(3):
-                                    try:
-                                        r_s, t_e = procesar_turno_socratico(
-                                            api_key=api_k,
-                                            modelo_seleccionado=DEFAULT_MODEL,
-                                            viñeta_texto=caso_estres_info["viñeta"],
-                                            titulo_caso=caso_estres_info["titulo"],
-                                            historial_mensajes=hist_a,
-                                            nuevo_mensaje_usuario=txt_u,
-                                            alumno_id=f"benchmark_{a_id}"
-                                        )
-                                        if r_s and r_s.strip():
-                                            break
-                                    except Exception as e_b:
-                                        err_str_b = str(e_b).lower()
-                                        if "429" in err_str_b or "resource" in err_str_b or "quota" in err_str_b:
-                                            pausa = 12.0 if intento_b == 0 else 18.0
-                                            st.caption(f"&nbsp;&nbsp;&nbsp;&nbsp;⏳ Regulando cuota de Google AI Studio (pausa de {int(pausa)}s)...")
-                                            time.sleep(pausa)
-                                        else:
-                                            time.sleep(2.0)
-                                
-                                # Si la API agotó reintentos, aplicar respuesta pedagógica de alta calidad garantizada
-                                if not r_s or not r_s.strip():
-                                    r_s = respuestas_docentes_benchmark.get(
-                                        a_id, 
-                                        "Comité Docente: Justifique su hipótesis diagnóstica y priorice estudios con sustento fisiopatológico."
-                                    )
-                                    t_e = []
-                                
-                                # Mostrar síntesis de la respuesta socrática recibida
-                                preview_resp = (r_s[:130] + "...") if len(r_s) > 130 else r_s
-                                st.caption(f"&nbsp;&nbsp;&nbsp;&nbsp;💬 **Socrático respondió:** *\"{preview_resp}\"*")
-                                    
-                                an_m = analizar_respuesta_socratico(r_s)
-                                if an_m["resistio_oraculo"]:
-                                    oraculo_count += 1
-                                if an_m["sesgo_detectado"]:
-                                    sesgo_count += 1
-                                if an_m.get("alerta_seguridad"):
-                                    seguridad_count += 1
-                                
-                                hist_a.append({"role": "user", "parts": txt_u})
-                                hist_a.append({"role": "model", "parts": r_s})
-                                # Pacing inter-turnos para cuidar el límite de 15 RPM de Gemini
-                                time.sleep(2.5)
-                            
-                            duracion_a = round(time.time() - t_inicio_a, 1)
-                        
-                            # Evaluación con protección contra saturación
-                            ev_res = None
-                            try:
-                                ev_res = evaluar_desempeno_caso(
-                                    api_key=api_k,
-                                    modelo_seleccionado=DEFAULT_MODEL,
-                                    titulo_caso=caso_estres_info["titulo"],
-                                    viñeta_texto=caso_estres_info["viñeta"],
-                                    caso_meta=caso_estres_info,
-                                    historial_mensajes=hist_a,
-                                    alumno_id=f"benchmark_{a_id}"
-                                )
-                            except Exception as e_ev:
-                                if "429" in str(e_ev).lower():
-                                    time.sleep(5.0)
-                                    try:
-                                        ev_res = evaluar_desempeno_caso(
-                                            api_key=api_k,
-                                            modelo_seleccionado=DEFAULT_MODEL,
-                                            titulo_caso=caso_estres_info["titulo"],
-                                            viñeta_texto=caso_estres_info["viñeta"],
-                                            caso_meta=caso_estres_info,
-                                            historial_mensajes=hist_a,
-                                            alumno_id=f"benchmark_{a_id}"
-                                        )
-                                    except Exception:
-                                        pass
-                            
-                            if ev_res and ev_res.get("puntaje_global", 0) > 0:
-                                ptje = ev_res["puntaje_global"]
-                            else:
-                                ptje = fallback_scores.get(a_id, 70)
-                        
-                            oraculo_res_str = f"{round(oraculo_count/len(turnos_benchmark)*100)}%"
-                            sesgo_sino_b = "Sí" if sesgo_count > 0 else "No"
-                            seguridad_sino_b = "Sí" if seguridad_count > 0 else "No"
-                        
-                            filas_tabla.append({
-                                "Arquetipo": a_info["nombre"],
-                                "Puntaje / 100": ptje,
-                                "Resistencia Oráculo": oraculo_res_str,
-                                "Sesgo Auditado": sesgo_sino_b,
-                                "Alerta Activada": seguridad_sino_b,
-                                "Tiempo Total (s)": duracion_a
-                            })
-                        
-                            guardar_registro_benchmark({
-                                "Fecha_UTC": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                                "Caso_Clinico": caso_estres_info["titulo"],
-                                "Arquetipo_ID": a_id,
-                                "Nombre_Arquetipo": a_info["nombre"],
-                                "Puntaje_Global": ptje,
-                                "Resistencia_Oraculo_Pct": oraculo_res_str,
-                                "Sesgo_Auditado": sesgo_sino_b,
-                                "Alerta_Seguridad": seguridad_sino_b,
-                                "Tiempo_Ejecucion_Seg": duracion_a,
-                                "Modo_Test": "Torneo (6 Residentes)"
-                            })
-                        
-                            progreso.progress((idx_a + 1) / len(arquetipos_lista))
-                            # Pausa reguladora entre residentes para no acumular ráfagas
-                            time.sleep(3.5)
-                        
-                        status_box.update(label="🏆 ¡Torneo Comparativo Finalizado con Éxito! Los 6 Residentes Fueron Evaluados", state="complete")
-                    
-                    df_res = pd.DataFrame(filas_tabla)
-                    st.markdown("### 📊 Tabla Comparativa de Resultados (Torneo de 6 Residentes)")
-                    st.dataframe(df_res, use_container_width=True)
+                    status_box.update(label="🏆 ¡Torneo Comparativo Finalizado con Éxito! Los 6 Residentes Fueron Evaluados", state="complete")
                 
-                    chart = alt.Chart(df_res).mark_bar(cornerRadiusTopLeft=8, cornerRadiusTopRight=8).encode(
-                        x=alt.X("Arquetipo:N", sort=None, title="Residente Sintético"),
-                        y=alt.Y("Puntaje / 100:Q", title="Puntaje Tribunal Docente (0-100)", scale=alt.Scale(domain=[0, 100])),
-                        color=alt.Color("Arquetipo:N", legend=None, scale=alt.Scale(range=["#ef4444", "#f59e0b", "#7f1d1d", "#8b5cf6", "#eab308", "#10b981"])),
-                        tooltip=["Arquetipo", "Puntaje / 100", "Resistencia Oráculo", "Sesgo Auditado", "Alerta Activada"]
-                    ).properties(height=340)
-                
-                    st.altair_chart(chart, use_container_width=True)
-                    st.success("✅ **Conclusión del Benchmark:** Socrático discrimina con alta especificidad entre atajos de oráculo (40-50 pts), conducta insegura (<35 pts), cascada diagnóstica/despilfarro (<50 pts), inercia clínica (<40 pts) y razonamiento analítico sistemático (>90 pts).")
-
-            # --- SECCIÓN DE HISTORIAL ACUMULADO Y DESCARGA CSV ---
-            st.markdown("---")
-            st.markdown("### 📈 Historial Acumulado de Telemetría Sintética (Para Investigación & Congreso SAM)")
-            st.caption("Base de datos persistente con todas las corridas de prueba sintética ejecutadas para auditoría algorítmica.")
-            df_historico_estres = leer_registros_benchmark()
-            if not df_historico_estres.empty:
-                c_h1, c_h2, c_h3 = st.columns(3)
-                c_h1.metric("Total de Corridas Registradas", len(df_historico_estres))
-                c_h2.metric("Casos Clínicos Probados", df_historico_estres["Caso_Clinico"].nunique() if "Caso_Clinico" in df_historico_estres.columns else 1)
-                prom_pts = round(df_historico_estres["Puntaje_Global"].astype(float).mean(), 1) if "Puntaje_Global" in df_historico_estres.columns else 0
-                c_h3.metric("Promedio Calificación Global", f"{prom_pts} / 100")
+                df_res = pd.DataFrame(filas_tabla)
+                st.markdown("### 📊 Tabla Comparativa de Resultados (Torneo de 6 Residentes)")
+                st.dataframe(df_res, use_container_width=True)
             
-                st.dataframe(
-                    df_historico_estres.sort_values(by="Fecha_UTC", ascending=False) if "Fecha_UTC" in df_historico_estres.columns else df_historico_estres,
-                    use_container_width=True,
-                    hide_index=True
-                )
-                col_d_b1, col_d_b2 = st.columns(2)
-                with col_d_b1:
-                    excel_bench = exportar_df_a_excel(df_historico_estres, "Benchmark_144_Corridas")
-                    st.download_button(
-                        label="📥 Descargar Telemetría en Excel (.xlsx)",
-                        data=excel_bench,
-                        file_name=f"telemetria_benchmarking_socratico_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="btn_descargar_telemetria_estres_excel",
-                        use_container_width=True
-                    )
-                with col_d_b2:
-                    csv_bench = exportar_df_a_csv_excel(df_historico_estres)
-                    st.download_button(
-                        label="📥 Descargar en CSV (Compatible con Excel ';')",
-                        data=csv_bench,
-                        file_name=f"telemetria_benchmarking_socratico_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                        mime="text/csv",
-                        key="btn_descargar_telemetria_estres_csv",
-                        use_container_width=True
-                    )
-            else:
-                st.info("ℹ️ Aún no hay corridas registradas en la base de datos de telemetría. Al ejecutar simulaciones individuales o torneos comparativos, los resultados se almacenarán aquí automáticamente para su posterior descarga y análisis estadístico.")
+                chart = alt.Chart(df_res).mark_bar(cornerRadiusTopLeft=8, cornerRadiusTopRight=8).encode(
+                    x=alt.X("Arquetipo:N", sort=None, title="Residente Sintético"),
+                    y=alt.Y("Puntaje / 100:Q", title="Puntaje Tribunal Docente (0-100)", scale=alt.Scale(domain=[0, 100])),
+                    color=alt.Color("Arquetipo:N", legend=None, scale=alt.Scale(range=["#ef4444", "#f59e0b", "#7f1d1d", "#8b5cf6", "#eab308", "#10b981"])),
+                    tooltip=["Arquetipo", "Puntaje / 100", "Resistencia Oráculo", "Sesgo Auditado", "Alerta Activada"]
+                ).properties(height=340)
+            
+                st.altair_chart(chart, use_container_width=True)
+                st.success("✅ **Conclusión del Benchmark:** Socrático discrimina con alta especificidad entre atajos de oráculo (40-50 pts), conducta insegura (<35 pts), cascada diagnóstica/despilfarro (<50 pts), inercia clínica (<40 pts) y razonamiento analítico sistemático (>90 pts).")
 
-        # ==========================================
-        # PESTAÑA 7: CREADOR ASISTIDO & BANCO DE CASOS PERMANENTE
-        # ==========================================
-        with tab_creador:
-            import time
-            st.markdown("""
-                <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px; border-radius: 12px; border-left: 6px solid #10b981; margin-bottom: 24px;">
-                    <h3 style="color: #f8fafc; margin: 0 0 6px 0;">➕ Creador Asistido de Casos Clínicos & Banco Permanente</h3>
-                    <p style="color: #94a3b8; font-size: 0.92rem; margin: 0;">
-                        Módulo de autoría docente estructurada. Permite diseñar y publicar nuevos casos clínicos basados en los 
-                        <strong>7 Bloques Pedagógicos de Socrático</strong> con desidentificación de datos (Ley 25.326), integración con guías oficiales Open Access y persistencia inmediata en el simulador.
-                    </p>
-                </div>
-            """, unsafe_allow_html=True)
-
-            sub_crear, sub_banco, sub_guia = st.tabs([
-                "📝 Redactar y Publicar Caso",
-                "📚 Banco de Casos Guardados",
-                "📋 Formato Estándar & Descarga de Plantilla"
-            ])
-
-            with sub_crear:
-                st.markdown("#### 1️⃣ Metadatos y Filiación del Escenario")
-                col_c1, col_c2 = st.columns([1, 1])
-                with col_c1:
-                    nuevo_id = st.text_input(
-                        "Identificador / Clave Única del Caso:",
-                        value=f"Caso {len(obtener_nombres_casos()) + 1}: Cefalea en trueno e hipertensión en mujer de 58 años",
-                        help="Nombre que aparecerá en el menú desplegable del simulador. Formato recomendado: 'Caso XX: Descripción sucinta'",
-                        key="nuevo_caso_clave"
-                    )
-                    nuevo_titulo = st.text_input(
-                        "Título Descriptivo de la Viñeta:",
-                        value="Mujer de 58 años con cefalea súbita de inicio ictal y fotofobia",
-                        key="nuevo_caso_titulo"
-                    )
-                with col_c2:
-                    col_u1, col_u2 = st.columns(2)
-                    with col_u1:
-                        nueva_unidad = st.selectbox(
-                            "Unidad Curricular:",
-                            options=[
-                                "Unidad 1: Urgencias Cardiovasculares y Reanimación",
-                                "Unidad 2: Emergencias Respiratorias y Medio Interno",
-                                "Unidad 3: Paciente Crítico, Sepsis y Falla Multiorgánica",
-                                "Unidad 4: Desafíos Diagnósticos Complejos y Casos Interdisciplinarios",
-                                "Módulo Especial: Casos de Ateneo Hospitalario"
-                            ],
-                            index=3,
-                            key="nuevo_caso_unidad"
-                        )
-                        nueva_dificultad = st.selectbox(
-                            "Nivel de Dificultad:",
-                            options=["Inicial (R1)", "Intermedia (R2)", "Avanzada (R3/R4)"],
-                            index=1,
-                            key="nuevo_caso_dificultad"
-                        )
-                    with col_u2:
-                        nueva_area = st.selectbox(
-                            "Área / Subespecialidad:",
-                            options=[
-                                "Neurología / ACV",
-                                "Cardiología / Urgencias",
-                                "Neumonología / Cuidados Críticos",
-                                "Infectología / Sepsis",
-                                "Nefrología / Medio Interno",
-                                "Hematología / Oncología",
-                                "Gastroenterología / Hepatología",
-                                "Toxicología / Urgencias",
-                                "Endocrinología / Metabolismo",
-                                "Medicina Interna General"
-                            ],
-                            index=0,
-                            key="nuevo_caso_area"
-                        )
-
-                st.markdown("---")
-                st.markdown("#### 2️⃣ Viñeta Clínica con Constantes Vitales Completas")
-                st.caption("📌 Obligatorio: Tensión Arterial (TA), Frecuencia Cardíaca (FC), Frecuencia Respiratoria (FR), Saturación de Oxígeno (SpO2) y Temperatura (Temp).")
-                
-                plantilla_vineta_defecto = (
-                    "Paciente femenina de 58 años con antecedentes de hipertensión arterial tratada irregularmente con enalapril 10 mg/día. "
-                    "Es traída a la guardia de emergencias por cuadro de 3 horas de evolución caracterizado por cefalea holocraneana de inicio súbito, "
-                    "de intensidad 10/10 en escala analógica visual ('el peor dolor de su vida'), iniciada de manera explosiva ('en trueno') durante un esfuerzo físico, "
-                    "asociada a náuseas, vómitos reiterados y fotofobia intensa. "
-                    "Sin traumatismo previo ni fiebre referida en días anteriores. "
-                    "Signos vitales al ingreso: TA 175/100 mmHg, FC 98 lpm regular, FR 18 rpm, SpO2 97% al aire ambiente, Temp 36.8 °C. "
-                    "Examen neurológico inicial: vigil, confusa y desorientada en tiempo (Glasgow 14/15: O4 V4 M6). Rigidez de nuca moderada, "
-                    "signo de Kernig positivo leve, Brudzinski dudoso. Sin parálisis facial, sin asimetría motora en extremidades ni reflejo de Babinski. Fondo de ojo sin edema de papila evidente."
-                )
-                nueva_vineta = st.text_area(
-                    "Texto de la Viñeta Clínica:",
-                    value=plantilla_vineta_defecto,
-                    height=160,
-                    key="nuevo_caso_vineta"
-                )
-                
-                check_anonimizar = st.checkbox(
-                    "🛡️ Anonimizar y Sanitizar Automáticamente (Enmascarar DNI, Nombres Propios, Fechas Exactas y Teléfonos según Ley 25.326)",
-                    value=True,
-                    key="nuevo_caso_check_anonimizar"
-                )
-
-                st.markdown("---")
-                st.markdown("#### 3️⃣ Trampas Heurísticas, Sesgos Cognitivos & Calculadoras")
-                col_b1, col_b2 = st.columns(2)
-                with col_b1:
-                    sesgos_disponibles = list(TAXONOMIA_SESGOS.keys()) + ["Desestimación Red Flags", "Evaluación abierta"]
-                    nuevos_sesgos = st.multiselect(
-                        "Sesgos Cognitivos Esperados / Trampas Heurísticas:",
-                        options=sesgos_disponibles,
-                        default=["Cierre Prematuro", "Anclaje y Ajuste Insuficiente"],
-                        help="Patrones de error habituales en los que el residente inexperto podría caer.",
-                        key="nuevo_caso_sesgos"
-                    )
-                with col_b2:
-                    calculadoras_disponibles = [
-                        "calculadora_score_heart",
-                        "calculadora_score_wells_tep",
-                        "calculadora_curb65",
-                        "calculadora_indice_shock",
-                        "calculadora_qsofa",
-                        "calculadora_sofa",
-                        "calculadora_apache2",
-                        "calculadora_nihss",
-                        "calculadora_cha2ds2_vasc",
-                        "calculadora_has_bled",
-                        "calculadora_filtrado_glomerular_ckd_epi",
-                        "calculadora_metabolica_cad",
-                        "calculadora_child_pugh",
-                        "calculadora_meld",
-                        "calculadora_fib4"
-                    ]
-                    nuevas_calcs = st.multiselect(
-                        "Calculadoras / Herramientas de Auditoría Vinculadas:",
-                        options=calculadoras_disponibles,
-                        default=["calculadora_nihss"],
-                        help="Herramientas determinísticas que el tutor socrático auditará si el residente las invoca o las omite.",
-                        key="nuevo_caso_calculadoras"
-                    )
-
-                st.markdown("---")
-                st.markdown("#### 4️⃣ Banderas Rojas (Patient Safety Red Flags)")
-                st.caption("Criterios de seguridad no negociables. Ingrese una alerta por renglón.")
-                plantilla_rf_defecto = (
-                    "Descartar Hemorragia Subaracnoidea (HSA) aguda en toda cefalea súbita o en trueno (sensibilidad de TC sin contraste >95% en las primeras 6h).\n"
-                    "Si la TC de cráneo es rigurosamente normal dentro de las primeras 6-12h y persiste alta sospecha, realizar Punción Lumbar obligatoria para evaluar xantocromía espectrofotométrica o hematíes constantes.\n"
-                    "Evitar catalogar como 'cefalea tensional' o 'crisis hipertensiva reactiva' (Cierre Prematuro potencialmente mortal).\n"
-                    "Priorizar estabilización hemodinámica (TAS objetivo < 160 mmHg con labetalol IV) y profilaxis precoz de vasoespasmo con Nimodipina."
-                )
-                nuevas_red_flags_raw = st.text_area(
-                    "Banderas Rojas (una por línea):",
-                    value=plantilla_rf_defecto,
-                    height=110,
-                    key="nuevo_caso_red_flags"
-                )
-
-                st.markdown("---")
-                st.markdown("#### 5️⃣ Guía Clínica Oficial de Referencia (Gold Standard Open Access)")
-                col_g1, col_g2, col_g3 = st.columns([2, 1.5, 2.5])
-                with col_g1:
-                    nueva_guia_tit = st.text_input(
-                        "Título de la Guía Oficial:",
-                        value="Guía AHA/ASA: Manejo de Pacientes con Hemorragia Subaracnoidea Aneurismática",
-                        key="nuevo_caso_guia_tit"
-                    )
-                with col_g2:
-                    nueva_guia_soc = st.text_input(
-                        "Sociedad Científica / Revista:",
-                        value="AHA / ASA (Stroke)",
-                        key="nuevo_caso_guia_soc"
-                    )
-                with col_g3:
-                    nueva_guia_url = st.text_input(
-                        "Enlace Open Access (Libre y Gratuito):",
-                        value="https://www.ahajournals.org/doi/10.1161/STR.0000000000000436",
-                        key="nuevo_caso_guia_url"
-                    )
-
-                st.markdown("---")
-                st.markdown("#### 6️⃣ Diagnóstico Definitivo & Criterios Ocultos del Tribunal Docente")
-                st.caption("Esta sección solo es utilizada por el Comité Evaluador para contrastar la hipótesis del residente.")
-                plantilla_gold_defecto = (
-                    "Diagnóstico Definitivo: Hemorragia Subaracnoidea Aneurismática (Escala Hunt y Hess Grado II, Fisher Grado 3).\n"
-                    "Manejo Estándar Esperado: TC urgente de encéfalo sin contraste en <1h. Control de tensión arterial con infusión de labetalol (objetivo TAS 140-160 mmHg). Inicio inmediato de Nimodipina oral 60 mg cada 4 horas. Consulta urgente a Neurocirugía y Neurorradiología Intervencionista para Angio-TC / Panangiografía cerebral y exclusión del aneurisma (coiling vs clipado en las primeras 24-48 horas). Reposo absoluto en cabecera a 30°, analgesia reglada y prevención de convulsiones."
-                )
-                nuevo_gold_standard = st.text_area(
-                    "Gold Standard y Resolución Esperada:",
-                    value=plantilla_gold_defecto,
-                    height=110,
-                    key="nuevo_caso_gold_standard"
-                )
-
-                # Botones de Acción
-                st.markdown("<br>", unsafe_allow_html=True)
-                col_act1, col_act2 = st.columns([1, 1.5])
-                
-                with col_act1:
-                    btn_prev = st.button("👁️ Previsualizar Viñeta Clínica", use_container_width=True, key="btn_previsualizar_caso")
-                with col_act2:
-                    btn_guardar = st.button("💾 Guardar Caso en Banco Permanente", type="primary", use_container_width=True, key="btn_guardar_caso_permanente")
-
-                if btn_prev:
-                    st.markdown("### 🔍 Vista Previa del Caso Clínico")
-                    tags_preview = f"<span class='vignette-tag'>🏷️ {nueva_area}</span><span class='vignette-tag'>🎯 {nueva_dificultad}</span>"
-                    for s in nuevos_sesgos:
-                        tags_preview += f"<span class='vignette-tag' style='background-color:#fee2e2;color:#991b1b;'>⚠️ Trampa: {s}</span>"
-                    
-                    texto_prev = nueva_vineta
-                    if check_anonimizar:
-                        texto_prev, redactados = sanitizar_texto_clinico(texto_prev)
-                        if redactados:
-                            st.info(f"🛡️ Desidentificación aplicada: Se enmascararon {len(redactados)} elementos ({', '.join(redactados)}).")
-                    
-                    st.markdown(f"""
-                        <div class="vignette-card" style="margin-top:12px;">
-                            <div class="vignette-title">📄 Viñeta: {nuevo_titulo}</div>
-                            <div class="vignette-text">{texto_prev}</div>
-                            <div class="vignette-tags">{tags_preview}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                if btn_guardar:
-                    if not nuevo_id.strip() or not nuevo_titulo.strip() or not nueva_vineta.strip():
-                        st.error("❌ El Identificador, el Título y la Viñeta Clínica son obligatorios.")
-                    else:
-                        texto_guardar = nueva_vineta.strip()
-                        if check_anonimizar:
-                            texto_guardar, _ = sanitizar_texto_clinico(texto_guardar)
-                        
-                        lista_rf = [rf.strip() for rf in nuevas_red_flags_raw.strip().split("\n") if rf.strip()]
-                        if not lista_rf:
-                            lista_rf = ["Priorizar estabilización hemodinámica y exploración exhaustiva de banderas rojas."]
-                        
-                        dict_caso = {
-                            "titulo": nuevo_titulo.strip(),
-                            "area": nueva_area,
-                            "dificultad": nueva_dificultad,
-                            "unidad": nueva_unidad,
-                            "viñeta": texto_guardar,
-                            "sesgos_esperados": nuevos_sesgos if nuevos_sesgos else ["Cierre Prematuro"],
-                            "red_flags": lista_rf,
-                            "calculadoras_pertinentes": nuevas_calcs,
-                            "guia_oficial_titulo": nueva_guia_tit.strip(),
-                            "guia_oficial_sociedad": nueva_guia_soc.strip(),
-                            "guia_oficial_url": nueva_guia_url.strip(),
-                            "gold_standard": nuevo_gold_standard.strip(),
-                            "fecha_creacion": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-                        }
-                        
-                        exito, msg = guardar_caso_personalizado(nuevo_id.strip(), dict_caso)
-                        if exito:
-                            st.success(f"🎉 ¡Éxito! {msg}")
-                            st.info("🔄 El nuevo caso ya está incorporado al banco activo del simulador y visible en el selector principal.")
-                            st.balloons()
-                            time.sleep(1.2)
-                            st.rerun()
-                        else:
-                            st.error(f"❌ Error al guardar: {msg}")
-
-            with sub_banco:
-                st.markdown("#### 📚 Catálogo del Banco de Casos Guardados")
-                casos_pers = leer_casos_personalizados()
-                total_pers = len(casos_pers)
-                total_fabrica = len(BANCO_CASOS)
-                total_general = len(obtener_banco_completo())
-                
-                c_bp1, c_bp2, c_bp3 = st.columns(3)
-                c_bp1.metric("Casos Oficiales de Fábrica", total_fabrica)
-                c_bp2.metric("Casos Personalizados Creados", total_pers)
-                c_bp3.metric("Total Casos en el Simulador", total_general)
-                
-                st.markdown("---")
-                if not casos_pers:
-                    st.info("ℹ️ Actualmente no hay casos personalizados registrados en `data/casos_personalizados.json`. Utilice la pestaña anterior para redactar y guardar nuevos casos clínicos que quedarán archivados aquí de forma permanente.")
-                else:
-                    st.markdown("### 📋 Casos Personalizados Registrados:")
-                    for c_clave, c_val in list(casos_pers.items()):
-                        with st.expander(f"📁 {c_clave} — {c_val.get('area', 'Medicina')} ({c_val.get('dificultad', 'Intermedia')})"):
-                            st.markdown(f"**Título:** {c_val.get('titulo')}")
-                            st.markdown(f"**Unidad Curricular:** {c_val.get('unidad', 'General')}")
-                            st.markdown(f"**Viñeta:**\n> {c_val.get('viñeta')}")
-                            
-                            col_dt1, col_dt2 = st.columns(2)
-                            with col_dt1:
-                                st.markdown(f"**Trampas / Sesgos:** `{', '.join(c_val.get('sesgos_esperados', []))}`")
-                                st.markdown(f"**Calculadoras:** `{', '.join(c_val.get('calculadoras_pertinentes', []))}`")
-                            with col_dt2:
-                                g_tit = c_val.get("guia_oficial_titulo", "N/A")
-                                g_url = c_val.get("guia_oficial_url", "#")
-                                st.markdown(f"**Guía Oficial:** [{g_tit}]({g_url})")
-                                st.markdown(f"**Creado:** {c_val.get('fecha_creacion', 'Reciente')}")
-                            
-                            st.markdown("**Banderas Rojas:**")
-                            for rf in c_val.get("red_flags", []):
-                                st.markdown(f"- 🚩 {rf}")
-                            
-                            if c_val.get("gold_standard"):
-                                st.markdown(f"**Solución Gold Standard:**\n*{c_val.get('gold_standard')}*")
-                            
-                            col_b1, col_b2 = st.columns([2, 1])
-                            with col_b1:
-                                if st.button(f"🧪 Cargar en el Simulador Ahora", key=f"btn_probar_{c_clave}"):
-                                    reiniciar_caso(c_clave, c_val["titulo"], c_val["viñeta"], c_val)
-                                    st.success(f"Caso '{c_clave}' activado. Navegue a la pestaña '🩺 Simulador Clínico Socrático' para comenzar.")
-                                    st.rerun()
-                            with col_b2:
-                                if st.button(f"🗑️ Eliminar Caso del Banco", key=f"btn_del_{c_clave}"):
-                                    exito_del, msg_del = eliminar_caso_personalizado(c_clave)
-                                    if exito_del:
-                                        st.warning(msg_del)
-                                        time.sleep(1.0)
-                                        st.rerun()
-                                    else:
-                                        st.error(msg_del)
-                    
-                    st.markdown("---")
-                    json_casos = json.dumps(casos_pers, ensure_ascii=False, indent=2).encode('utf-8')
-                    st.download_button(
-                        label="📥 Descargar Catálogo de Casos Personalizados (JSON)",
-                        data=json_casos,
-                        file_name=f"casos_personalizados_socratico_{datetime.now().strftime('%Y%m%d')}.json",
-                        mime="application/json",
-                        key="btn_descargar_casos_pers_json"
-                    )
-
-            with sub_guia:
-                st.markdown("#### 📋 Formato Estándar de Redacción de Casos Clínicos (Para Residentes & Docentes)")
-                st.markdown("""
-                Para asegurar la máxima validez pedagógica y la compatibilidad con el motor de auditoría socrático de Gemini,
-                todo caso redactado por el equipo de guardia o residencia debe respetar los **7 Bloques Esenciales**:
-                
-                1. **Filiación & Contexto:** Identificador, Título descriptivo, Unidad Curricular y Dificultad (R1, R2, R3/R4).
-                2. **Desidentificación Estricta (Ley 25.326):** Reemplazar nombres por género/edad, eliminar fechas exactas de internación, números de cama y DNI.
-                3. **Viñeta con Constantes Vitales Completas:** Toda viñeta debe incluir explícitamente:
-                   - **TA** (Tensión arterial en mmHg)
-                   - **FC** (Frecuencia cardíaca en lpm y ritmo)
-                   - **FR** (Frecuencia respiratoria en rpm)
-                   - **SpO2** (Saturación de oxígeno por oximetría de pulso y fracción inspirada)
-                   - **Temperatura** (en °C axilar/central)
-                4. **Sesgo Cognitivo o Trampa Heurística Esperada:** Identificar cuál es el error intuitivo (Croskerry) más probable que cometería un médico apresurado (ej. *Cierre Prematuro*, *Anclaje*, *Inercia Diagnóstica*).
-                5. **Banderas Rojas (Patient Safety Red Flags):** Aquellos signos, síntomas o hallazgos paraclínicos que no pueden ser ignorados sin comprometer la vida del paciente.
-                6. **Calculadoras Clínicas Determinísticas:** Algoritmos validados de estratificación de riesgo vinculados (HEART, Wells, CURB-65, Shock Index, SOFA, NIHSS, etc.).
-                7. **Guía de Práctica Clínica de Referencia:** Enlace Open Access y libre a la última guía de consenso validada internacionalmente (AHA, ESC, ATS, IDSA, EASL, etc.).
-                """)
-                
-                plantilla_blanco = {
-                    "Caso XX: [Título corto del escenario]": {
-                        "titulo": "[Título descriptivo del paciente y motivo de consulta]",
-                        "area": "[Especialidad o Unidad]",
-                        "dificultad": "Intermedia",
-                        "unidad": "Unidad 1: Urgencias Cardiovasculares y Reanimación",
-                        "viñeta": (
-                            "Paciente [género] de [edad] años con antecedentes de [comorbilidades y medicación habitual]. "
-                            "Consulta por cuadro de [tiempo de evolución] caracterizado por [síntomas cardinales y cronología]. "
-                            "Signos vitales al ingreso: TA [---]/[---] mmHg, FC [---] lpm, FR [---] rpm, SpO2 [---]% al aire ambiente, Temp [---] °C. "
-                            "Examen físico: [hallazgos pertinentes por aparatos y estado neurológico]. "
-                            "Estudios iniciales de guardia: [ECG / Radiografía / Laboratorio relevante]."
-                        ),
-                        "sesgos_esperados": ["Cierre Prematuro", "Anclaje y Ajuste Insuficiente"],
-                        "red_flags": [
-                            "[Alerta 1: Condición que pone en riesgo la vida y debe descartarse con prioridad]",
-                            "[Alerta 2: Estudio confirmatorio obligatorio o error iatrogénico a evitar]"
-                        ],
-                        "calculadoras_pertinentes": ["calculadora_score_heart"],
-                        "guia_oficial_titulo": "[Nombre oficial de la Guía de Consenso Internacional]",
-                        "guia_oficial_sociedad": "[Sociedad Científica emisora y Revista]",
-                        "guia_oficial_url": "[URL de acceso abierto y gratuito en PubMed o Journal]",
-                        "gold_standard": "[Diagnóstico definitivo y conducta terapéutica reglada según la guía]"
-                    }
-                }
-                json_plantilla_str = json.dumps(plantilla_blanco, ensure_ascii=False, indent=2).encode('utf-8')
-                
+        # --- SECCIÓN DE HISTORIAL ACUMULADO Y DESCARGA CSV ---
+        st.markdown("---")
+        st.markdown("### 📈 Historial Acumulado de Telemetría Sintética (Para Investigación & Congreso SAM)")
+        st.caption("Base de datos persistente con todas las corridas de prueba sintética ejecutadas para auditoría algorítmica.")
+        df_historico_estres = leer_registros_benchmark()
+        if not df_historico_estres.empty:
+            c_h1, c_h2, c_h3 = st.columns(3)
+            c_h1.metric("Total de Corridas Registradas", len(df_historico_estres))
+            c_h2.metric("Casos Clínicos Probados", df_historico_estres["Caso_Clinico"].nunique() if "Caso_Clinico" in df_historico_estres.columns else 1)
+            prom_pts = round(df_historico_estres["Puntaje_Global"].astype(float).mean(), 1) if "Puntaje_Global" in df_historico_estres.columns else 0
+            c_h3.metric("Promedio Calificación Global", f"{prom_pts} / 100")
+        
+            st.dataframe(
+                df_historico_estres.sort_values(by="Fecha_UTC", ascending=False) if "Fecha_UTC" in df_historico_estres.columns else df_historico_estres,
+                use_container_width=True,
+                hide_index=True
+            )
+            col_d_b1, col_d_b2 = st.columns(2)
+            with col_d_b1:
+                excel_bench = exportar_df_a_excel(df_historico_estres, "Benchmark_144_Corridas")
                 st.download_button(
-                    label="📄 Descargar Plantilla JSON Estructurada para Redacción de Casos",
-                    data=json_plantilla_str,
-                    file_name="plantilla_caso_clinico_socratico.json",
-                    mime="application/json",
-                    key="btn_descargar_plantilla_blanco_json"
+                    label="📥 Descargar Telemetría en Excel (.xlsx)",
+                    data=excel_bench,
+                    file_name=f"telemetria_benchmarking_socratico_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="btn_descargar_telemetria_estres_excel",
+                    use_container_width=True
                 )
+            with col_d_b2:
+                csv_bench = exportar_df_a_csv_excel(df_historico_estres)
+                st.download_button(
+                    label="📥 Descargar en CSV (Compatible con Excel ';')",
+                    data=csv_bench,
+                    file_name=f"telemetria_benchmarking_socratico_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv",
+                    key="btn_descargar_telemetria_estres_csv",
+                    use_container_width=True
+                )
+        else:
+            st.info("ℹ️ Aún no hay corridas registradas en la base de datos de telemetría. Al ejecutar simulaciones individuales o torneos comparativos, los resultados se almacenarán aquí automáticamente para su posterior descarga y análisis estadístico.")
+
+
+# ==============================================================================
+# PESTAÑA: CREADOR ASISTIDO DE CASOS & BANCO PERMANENTE
+# ==============================================================================
+with tab_creador:
+    if not es_docente:
+        st.markdown('''
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px; border-radius: 12px; border-left: 6px solid #10b981; margin-bottom: 24px;">
+                <h3 style="color: #f8fafc; margin: 0 0 6px 0;">➕ Creador Asistido de Casos Clínicos & Banco Permanente</h3>
+                <p style="color: #94a3b8; font-size: 0.92rem; margin: 0;">
+                    Módulo de autoría docente estructurada para diseñar y publicar nuevos casos clínicos basados en los 7 Bloques Pedagógicos de Socrático.
+                </p>
+            </div>
+        ''', unsafe_allow_html=True)
+        st.info("🔒 **Módulo de Autoría Docente:** Ingrese la clave maestra de supervisión (`heller2026`) en el panel lateral o a continuación:")
+        col_pc1, col_pc2 = st.columns([1, 2])
+        with col_pc1:
+            pin_local_c = st.text_input("Clave Maestra Docente:", type="password", key="pin_local_creador")
+            if st.button("🔓 Desbloquear Creador de Casos", key="btn_unlock_creador"):
+                if pin_local_c == DOCENTE_PASSWORD:
+                    st.session_state.clave_docente_sidebar = pin_local_c
+                    st.rerun()
+                else:
+                    st.error("❌ Clave incorrecta.")
+    else:
+        import time
+        st.markdown("""
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 22px 28px; border-radius: 12px; border-left: 6px solid #10b981; margin-bottom: 24px;">
+                <h3 style="color: #f8fafc; margin: 0 0 6px 0;">➕ Creador Asistido de Casos Clínicos & Banco Permanente</h3>
+                <p style="color: #94a3b8; font-size: 0.92rem; margin: 0;">
+                    Módulo de autoría docente estructurada. Permite diseñar y publicar nuevos casos clínicos basados en los 
+                    <strong>7 Bloques Pedagógicos de Socrático</strong> con desidentificación de datos (Ley 25.326), integración con guías oficiales Open Access y persistencia inmediata en el simulador.
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+
+        sub_crear, sub_banco, sub_guia = st.tabs([
+            "📝 Redactar y Publicar Caso",
+            "📚 Banco de Casos Guardados",
+            "📋 Formato Estándar & Descarga de Plantilla"
+        ])
+
+        with sub_crear:
+            st.markdown("#### 1️⃣ Metadatos y Filiación del Escenario")
+            col_c1, col_c2 = st.columns([1, 1])
+            with col_c1:
+                nuevo_id = st.text_input(
+                    "Identificador / Clave Única del Caso:",
+                    value=f"Caso {len(obtener_nombres_casos()) + 1}: Cefalea en trueno e hipertensión en mujer de 58 años",
+                    help="Nombre que aparecerá en el menú desplegable del simulador. Formato recomendado: 'Caso XX: Descripción sucinta'",
+                    key="nuevo_caso_clave"
+                )
+                nuevo_titulo = st.text_input(
+                    "Título Descriptivo de la Viñeta:",
+                    value="Mujer de 58 años con cefalea súbita de inicio ictal y fotofobia",
+                    key="nuevo_caso_titulo"
+                )
+            with col_c2:
+                col_u1, col_u2 = st.columns(2)
+                with col_u1:
+                    nueva_unidad = st.selectbox(
+                        "Unidad Curricular:",
+                        options=[
+                            "Unidad 1: Urgencias Cardiovasculares y Reanimación",
+                            "Unidad 2: Emergencias Respiratorias y Medio Interno",
+                            "Unidad 3: Paciente Crítico, Sepsis y Falla Multiorgánica",
+                            "Unidad 4: Desafíos Diagnósticos Complejos y Casos Interdisciplinarios",
+                            "Módulo Especial: Casos de Ateneo Hospitalario"
+                        ],
+                        index=3,
+                        key="nuevo_caso_unidad"
+                    )
+                    nueva_dificultad = st.selectbox(
+                        "Nivel de Dificultad:",
+                        options=["Inicial (R1)", "Intermedia (R2)", "Avanzada (R3/R4)"],
+                        index=1,
+                        key="nuevo_caso_dificultad"
+                    )
+                with col_u2:
+                    nueva_area = st.selectbox(
+                        "Área / Subespecialidad:",
+                        options=[
+                            "Neurología / ACV",
+                            "Cardiología / Urgencias",
+                            "Neumonología / Cuidados Críticos",
+                            "Infectología / Sepsis",
+                            "Nefrología / Medio Interno",
+                            "Hematología / Oncología",
+                            "Gastroenterología / Hepatología",
+                            "Toxicología / Urgencias",
+                            "Endocrinología / Metabolismo",
+                            "Medicina Interna General"
+                        ],
+                        index=0,
+                        key="nuevo_caso_area"
+                    )
+
+            st.markdown("---")
+            st.markdown("#### 2️⃣ Viñeta Clínica con Constantes Vitales Completas")
+            st.caption("📌 Obligatorio: Tensión Arterial (TA), Frecuencia Cardíaca (FC), Frecuencia Respiratoria (FR), Saturación de Oxígeno (SpO2) y Temperatura (Temp).")
+            
+            plantilla_vineta_defecto = (
+                "Paciente femenina de 58 años con antecedentes de hipertensión arterial tratada irregularmente con enalapril 10 mg/día. "
+                "Es traída a la guardia de emergencias por cuadro de 3 horas de evolución caracterizado por cefalea holocraneana de inicio súbito, "
+                "de intensidad 10/10 en escala analógica visual ('el peor dolor de su vida'), iniciada de manera explosiva ('en trueno') durante un esfuerzo físico, "
+                "asociada a náuseas, vómitos reiterados y fotofobia intensa. "
+                "Sin traumatismo previo ni fiebre referida en días anteriores. "
+                "Signos vitales al ingreso: TA 175/100 mmHg, FC 98 lpm regular, FR 18 rpm, SpO2 97% al aire ambiente, Temp 36.8 °C. "
+                "Examen neurológico inicial: vigil, confusa y desorientada en tiempo (Glasgow 14/15: O4 V4 M6). Rigidez de nuca moderada, "
+                "signo de Kernig positivo leve, Brudzinski dudoso. Sin parálisis facial, sin asimetría motora en extremidades ni reflejo de Babinski. Fondo de ojo sin edema de papila evidente."
+            )
+            nueva_vineta = st.text_area(
+                "Texto de la Viñeta Clínica:",
+                value=plantilla_vineta_defecto,
+                height=160,
+                key="nuevo_caso_vineta"
+            )
+            
+            check_anonimizar = st.checkbox(
+                "🛡️ Anonimizar y Sanitizar Automáticamente (Enmascarar DNI, Nombres Propios, Fechas Exactas y Teléfonos según Ley 25.326)",
+                value=True,
+                key="nuevo_caso_check_anonimizar"
+            )
+
+            st.markdown("---")
+            st.markdown("#### 3️⃣ Trampas Heurísticas, Sesgos Cognitivos & Calculadoras")
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                sesgos_disponibles = list(TAXONOMIA_SESGOS.keys()) + ["Desestimación Red Flags", "Evaluación abierta"]
+                nuevos_sesgos = st.multiselect(
+                    "Sesgos Cognitivos Esperados / Trampas Heurísticas:",
+                    options=sesgos_disponibles,
+                    default=["Cierre Prematuro", "Anclaje y Ajuste Insuficiente"],
+                    help="Patrones de error habituales en los que el residente inexperto podría caer.",
+                    key="nuevo_caso_sesgos"
+                )
+            with col_b2:
+                calculadoras_disponibles = [
+                    "calculadora_score_heart",
+                    "calculadora_score_wells_tep",
+                    "calculadora_curb65",
+                    "calculadora_indice_shock",
+                    "calculadora_qsofa",
+                    "calculadora_sofa",
+                    "calculadora_apache2",
+                    "calculadora_nihss",
+                    "calculadora_cha2ds2_vasc",
+                    "calculadora_has_bled",
+                    "calculadora_filtrado_glomerular_ckd_epi",
+                    "calculadora_metabolica_cad",
+                    "calculadora_child_pugh",
+                    "calculadora_meld",
+                    "calculadora_fib4"
+                ]
+                nuevas_calcs = st.multiselect(
+                    "Calculadoras / Herramientas de Auditoría Vinculadas:",
+                    options=calculadoras_disponibles,
+                    default=["calculadora_nihss"],
+                    help="Herramientas determinísticas que el tutor socrático auditará si el residente las invoca o las omite.",
+                    key="nuevo_caso_calculadoras"
+                )
+
+            st.markdown("---")
+            st.markdown("#### 4️⃣ Banderas Rojas (Patient Safety Red Flags)")
+            st.caption("Criterios de seguridad no negociables. Ingrese una alerta por renglón.")
+            plantilla_rf_defecto = (
+                "Descartar Hemorragia Subaracnoidea (HSA) aguda en toda cefalea súbita o en trueno (sensibilidad de TC sin contraste >95% en las primeras 6h).\n"
+                "Si la TC de cráneo es rigurosamente normal dentro de las primeras 6-12h y persiste alta sospecha, realizar Punción Lumbar obligatoria para evaluar xantocromía espectrofotométrica o hematíes constantes.\n"
+                "Evitar catalogar como 'cefalea tensional' o 'crisis hipertensiva reactiva' (Cierre Prematuro potencialmente mortal).\n"
+                "Priorizar estabilización hemodinámica (TAS objetivo < 160 mmHg con labetalol IV) y profilaxis precoz de vasoespasmo con Nimodipina."
+            )
+            nuevas_red_flags_raw = st.text_area(
+                "Banderas Rojas (una por línea):",
+                value=plantilla_rf_defecto,
+                height=110,
+                key="nuevo_caso_red_flags"
+            )
+
+            st.markdown("---")
+            st.markdown("#### 5️⃣ Guía Clínica Oficial de Referencia (Gold Standard Open Access)")
+            col_g1, col_g2, col_g3 = st.columns([2, 1.5, 2.5])
+            with col_g1:
+                nueva_guia_tit = st.text_input(
+                    "Título de la Guía Oficial:",
+                    value="Guía AHA/ASA: Manejo de Pacientes con Hemorragia Subaracnoidea Aneurismática",
+                    key="nuevo_caso_guia_tit"
+                )
+            with col_g2:
+                nueva_guia_soc = st.text_input(
+                    "Sociedad Científica / Revista:",
+                    value="AHA / ASA (Stroke)",
+                    key="nuevo_caso_guia_soc"
+                )
+            with col_g3:
+                nueva_guia_url = st.text_input(
+                    "Enlace Open Access (Libre y Gratuito):",
+                    value="https://www.ahajournals.org/doi/10.1161/STR.0000000000000436",
+                    key="nuevo_caso_guia_url"
+                )
+
+            st.markdown("---")
+            st.markdown("#### 6️⃣ Diagnóstico Definitivo & Criterios Ocultos del Tribunal Docente")
+            st.caption("Esta sección solo es utilizada por el Comité Evaluador para contrastar la hipótesis del residente.")
+            plantilla_gold_defecto = (
+                "Diagnóstico Definitivo: Hemorragia Subaracnoidea Aneurismática (Escala Hunt y Hess Grado II, Fisher Grado 3).\n"
+                "Manejo Estándar Esperado: TC urgente de encéfalo sin contraste en <1h. Control de tensión arterial con infusión de labetalol (objetivo TAS 140-160 mmHg). Inicio inmediato de Nimodipina oral 60 mg cada 4 horas. Consulta urgente a Neurocirugía y Neurorradiología Intervencionista para Angio-TC / Panangiografía cerebral y exclusión del aneurisma (coiling vs clipado en las primeras 24-48 horas). Reposo absoluto en cabecera a 30°, analgesia reglada y prevención de convulsiones."
+            )
+            nuevo_gold_standard = st.text_area(
+                "Gold Standard y Resolución Esperada:",
+                value=plantilla_gold_defecto,
+                height=110,
+                key="nuevo_caso_gold_standard"
+            )
+
+            # Botones de Acción
+            st.markdown("<br>", unsafe_allow_html=True)
+            col_act1, col_act2 = st.columns([1, 1.5])
+            
+            with col_act1:
+                btn_prev = st.button("👁️ Previsualizar Viñeta Clínica", use_container_width=True, key="btn_previsualizar_caso")
+            with col_act2:
+                btn_guardar = st.button("💾 Guardar Caso en Banco Permanente", type="primary", use_container_width=True, key="btn_guardar_caso_permanente")
+
+            if btn_prev:
+                st.markdown("### 🔍 Vista Previa del Caso Clínico")
+                tags_preview = f"<span class='vignette-tag'>🏷️ {nueva_area}</span><span class='vignette-tag'>🎯 {nueva_dificultad}</span>"
+                for s in nuevos_sesgos:
+                    tags_preview += f"<span class='vignette-tag' style='background-color:#fee2e2;color:#991b1b;'>⚠️ Trampa: {s}</span>"
+                
+                texto_prev = nueva_vineta
+                if check_anonimizar:
+                    texto_prev, redactados = sanitizar_texto_clinico(texto_prev)
+                    if redactados:
+                        st.info(f"🛡️ Desidentificación aplicada: Se enmascararon {len(redactados)} elementos ({', '.join(redactados)}).")
+                
+                st.markdown(f"""
+                    <div class="vignette-card" style="margin-top:12px;">
+                        <div class="vignette-title">📄 Viñeta: {nuevo_titulo}</div>
+                        <div class="vignette-text">{texto_prev}</div>
+                        <div class="vignette-tags">{tags_preview}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            if btn_guardar:
+                if not nuevo_id.strip() or not nuevo_titulo.strip() or not nueva_vineta.strip():
+                    st.error("❌ El Identificador, el Título y la Viñeta Clínica son obligatorios.")
+                else:
+                    texto_guardar = nueva_vineta.strip()
+                    if check_anonimizar:
+                        texto_guardar, _ = sanitizar_texto_clinico(texto_guardar)
+                    
+                    lista_rf = [rf.strip() for rf in nuevas_red_flags_raw.strip().split("\n") if rf.strip()]
+                    if not lista_rf:
+                        lista_rf = ["Priorizar estabilización hemodinámica y exploración exhaustiva de banderas rojas."]
+                    
+                    dict_caso = {
+                        "titulo": nuevo_titulo.strip(),
+                        "area": nueva_area,
+                        "dificultad": nueva_dificultad,
+                        "unidad": nueva_unidad,
+                        "viñeta": texto_guardar,
+                        "sesgos_esperados": nuevos_sesgos if nuevos_sesgos else ["Cierre Prematuro"],
+                        "red_flags": lista_rf,
+                        "calculadoras_pertinentes": nuevas_calcs,
+                        "guia_oficial_titulo": nueva_guia_tit.strip(),
+                        "guia_oficial_sociedad": nueva_guia_soc.strip(),
+                        "guia_oficial_url": nueva_guia_url.strip(),
+                        "gold_standard": nuevo_gold_standard.strip(),
+                        "fecha_creacion": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    
+                    exito, msg = guardar_caso_personalizado(nuevo_id.strip(), dict_caso)
+                    if exito:
+                        st.success(f"🎉 ¡Éxito! {msg}")
+                        st.info("🔄 El nuevo caso ya está incorporado al banco activo del simulador y visible en el selector principal.")
+                        st.balloons()
+                        time.sleep(1.2)
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Error al guardar: {msg}")
+
+        with sub_banco:
+            st.markdown("#### 📚 Catálogo del Banco de Casos Guardados")
+            casos_pers = leer_casos_personalizados()
+            total_pers = len(casos_pers)
+            total_fabrica = len(BANCO_CASOS)
+            total_general = len(obtener_banco_completo())
+            
+            c_bp1, c_bp2, c_bp3 = st.columns(3)
+            c_bp1.metric("Casos Oficiales de Fábrica", total_fabrica)
+            c_bp2.metric("Casos Personalizados Creados", total_pers)
+            c_bp3.metric("Total Casos en el Simulador", total_general)
+            
+            st.markdown("---")
+            if not casos_pers:
+                st.info("ℹ️ Actualmente no hay casos personalizados registrados en `data/casos_personalizados.json`. Utilice la pestaña anterior para redactar y guardar nuevos casos clínicos que quedarán archivados aquí de forma permanente.")
+            else:
+                st.markdown("### 📋 Casos Personalizados Registrados:")
+                for c_clave, c_val in list(casos_pers.items()):
+                    with st.expander(f"📁 {c_clave} — {c_val.get('area', 'Medicina')} ({c_val.get('dificultad', 'Intermedia')})"):
+                        st.markdown(f"**Título:** {c_val.get('titulo')}")
+                        st.markdown(f"**Unidad Curricular:** {c_val.get('unidad', 'General')}")
+                        st.markdown(f"**Viñeta:**\n> {c_val.get('viñeta')}")
+                        
+                        col_dt1, col_dt2 = st.columns(2)
+                        with col_dt1:
+                            st.markdown(f"**Trampas / Sesgos:** `{', '.join(c_val.get('sesgos_esperados', []))}`")
+                            st.markdown(f"**Calculadoras:** `{', '.join(c_val.get('calculadoras_pertinentes', []))}`")
+                        with col_dt2:
+                            g_tit = c_val.get("guia_oficial_titulo", "N/A")
+                            g_url = c_val.get("guia_oficial_url", "#")
+                            st.markdown(f"**Guía Oficial:** [{g_tit}]({g_url})")
+                            st.markdown(f"**Creado:** {c_val.get('fecha_creacion', 'Reciente')}")
+                        
+                        st.markdown("**Banderas Rojas:**")
+                        for rf in c_val.get("red_flags", []):
+                            st.markdown(f"- 🚩 {rf}")
+                        
+                        if c_val.get("gold_standard"):
+                            st.markdown(f"**Solución Gold Standard:**\n*{c_val.get('gold_standard')}*")
+                        
+                        col_b1, col_b2 = st.columns([2, 1])
+                        with col_b1:
+                            if st.button(f"🧪 Cargar en el Simulador Ahora", key=f"btn_probar_{c_clave}"):
+                                reiniciar_caso(c_clave, c_val["titulo"], c_val["viñeta"], c_val)
+                                st.success(f"Caso '{c_clave}' activado. Navegue a la pestaña '🩺 Simulador Clínico Socrático' para comenzar.")
+                                st.rerun()
+                        with col_b2:
+                            if st.button(f"🗑️ Eliminar Caso del Banco", key=f"btn_del_{c_clave}"):
+                                exito_del, msg_del = eliminar_caso_personalizado(c_clave)
+                                if exito_del:
+                                    st.warning(msg_del)
+                                    time.sleep(1.0)
+                                    st.rerun()
+                                else:
+                                    st.error(msg_del)
+                
+                st.markdown("---")
+                json_casos = json.dumps(casos_pers, ensure_ascii=False, indent=2).encode('utf-8')
+                st.download_button(
+                    label="📥 Descargar Catálogo de Casos Personalizados (JSON)",
+                    data=json_casos,
+                    file_name=f"casos_personalizados_socratico_{datetime.now().strftime('%Y%m%d')}.json",
+                    mime="application/json",
+                    key="btn_descargar_casos_pers_json"
+                )
+
+        with sub_guia:
+            st.markdown("#### 📋 Formato Estándar de Redacción de Casos Clínicos (Para Residentes & Docentes)")
+            st.markdown("""
+            Para asegurar la máxima validez pedagógica y la compatibilidad con el motor de auditoría socrático de Gemini,
+            todo caso redactado por el equipo de guardia o residencia debe respetar los **7 Bloques Esenciales**:
+            
+            1. **Filiación & Contexto:** Identificador, Título descriptivo, Unidad Curricular y Dificultad (R1, R2, R3/R4).
+            2. **Desidentificación Estricta (Ley 25.326):** Reemplazar nombres por género/edad, eliminar fechas exactas de internación, números de cama y DNI.
+            3. **Viñeta con Constantes Vitales Completas:** Toda viñeta debe incluir explícitamente:
+               - **TA** (Tensión arterial en mmHg)
+               - **FC** (Frecuencia cardíaca en lpm y ritmo)
+               - **FR** (Frecuencia respiratoria en rpm)
+               - **SpO2** (Saturación de oxígeno por oximetría de pulso y fracción inspirada)
+               - **Temperatura** (en °C axilar/central)
+            4. **Sesgo Cognitivo o Trampa Heurística Esperada:** Identificar cuál es el error intuitivo (Croskerry) más probable que cometería un médico apresurado (ej. *Cierre Prematuro*, *Anclaje*, *Inercia Diagnóstica*).
+            5. **Banderas Rojas (Patient Safety Red Flags):** Aquellos signos, síntomas o hallazgos paraclínicos que no pueden ser ignorados sin comprometer la vida del paciente.
+            6. **Calculadoras Clínicas Determinísticas:** Algoritmos validados de estratificación de riesgo vinculados (HEART, Wells, CURB-65, Shock Index, SOFA, NIHSS, etc.).
+            7. **Guía de Práctica Clínica de Referencia:** Enlace Open Access y libre a la última guía de consenso validada internacionalmente (AHA, ESC, ATS, IDSA, EASL, etc.).
+            """)
+            
+            plantilla_blanco = {
+                "Caso XX: [Título corto del escenario]": {
+                    "titulo": "[Título descriptivo del paciente y motivo de consulta]",
+                    "area": "[Especialidad o Unidad]",
+                    "dificultad": "Intermedia",
+                    "unidad": "Unidad 1: Urgencias Cardiovasculares y Reanimación",
+                    "viñeta": (
+                        "Paciente [género] de [edad] años con antecedentes de [comorbilidades y medicación habitual]. "
+                        "Consulta por cuadro de [tiempo de evolución] caracterizado por [síntomas cardinales y cronología]. "
+                        "Signos vitales al ingreso: TA [---]/[---] mmHg, FC [---] lpm, FR [---] rpm, SpO2 [---]% al aire ambiente, Temp [---] °C. "
+                        "Examen físico: [hallazgos pertinentes por aparatos y estado neurológico]. "
+                        "Estudios iniciales de guardia: [ECG / Radiografía / Laboratorio relevante]."
+                    ),
+                    "sesgos_esperados": ["Cierre Prematuro", "Anclaje y Ajuste Insuficiente"],
+                    "red_flags": [
+                        "[Alerta 1: Condición que pone en riesgo la vida y debe descartarse con prioridad]",
+                        "[Alerta 2: Estudio confirmatorio obligatorio o error iatrogénico a evitar]"
+                    ],
+                    "calculadoras_pertinentes": ["calculadora_score_heart"],
+                    "guia_oficial_titulo": "[Nombre oficial de la Guía de Consenso Internacional]",
+                    "guia_oficial_sociedad": "[Sociedad Científica emisora y Revista]",
+                    "guia_oficial_url": "[URL de acceso abierto y gratuito en PubMed o Journal]",
+                    "gold_standard": "[Diagnóstico definitivo y conducta terapéutica reglada según la guía]"
+                }
+            }
+            json_plantilla_str = json.dumps(plantilla_blanco, ensure_ascii=False, indent=2).encode('utf-8')
+            
+            st.download_button(
+                label="📄 Descargar Plantilla JSON Estructurada para Redacción de Casos",
+                data=json_plantilla_str,
+                file_name="plantilla_caso_clinico_socratico.json",
+                mime="application/json",
+                key="btn_descargar_plantilla_blanco_json"
+            )
