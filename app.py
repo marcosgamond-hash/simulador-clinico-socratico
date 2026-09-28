@@ -697,6 +697,7 @@ MEMORIA_ATENEOS_FILE = DATA_DIR / "memoria_ateneos_doctrina.json"
 ANTI_DESKILLING_LOG_FILE = DATA_DIR / "auditoria_anti_deskilling_log.csv"
 ESCALAMIENTO_LOG_FILE = DATA_DIR / "escalamiento_urgencias_log.csv"
 COSTO_EFECTIVIDAD_LOG_FILE = DATA_DIR / "costo_efectividad_log.csv"
+SESIONES_ACTIVAS_FILE = DATA_DIR / "sesiones_activas.json"
 
 # Canal de correo institucional docente / jefatura
 DEFAULT_DOCENTE_EMAIL = "clinicahellersocratico@gmail.com"
@@ -5592,6 +5593,117 @@ def generar_libro_excel_completo(
         return exportar_df_a_csv_excel(df_evaluaciones if df_evaluaciones is not None else pd.DataFrame())
 
 
+# ==============================================================================
+# GESTIÓN DE SESIONES EN CURSO (MODO STANDBY & AUTOGUARDADO ANTI-TIMEOUT)
+# ==============================================================================
+
+def inicializar_almacenamiento_sesiones() -> None:
+    """Asegura que el archivo JSON de sesiones activas exista."""
+    if not SESIONES_ACTIVAS_FILE.exists():
+        try:
+            with open(SESIONES_ACTIVAS_FILE, "w", encoding="utf-8") as f:
+                json.dump({}, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+
+
+def guardar_sesion_activa(alumno_id: str, estado: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Guarda o actualiza el estado de una sesión en curso en disco para persistencia resiliente.
+    Permite a los residentes pausar casos o recuperarlos ante desconexión o refresh accidental.
+    """
+    if not alumno_id or not estado:
+        return False, "ID de alumno o estado no válidos"
+    try:
+        inicializar_almacenamiento_sesiones()
+        datos = {}
+        if SESIONES_ACTIVAS_FILE.exists():
+            try:
+                with open(SESIONES_ACTIVAS_FILE, "r", encoding="utf-8") as f:
+                    datos = json.load(f)
+            except Exception:
+                datos = {}
+
+        from datetime import datetime
+        estado_con_meta = dict(estado)
+        estado_con_meta["alumno_id"] = alumno_id
+        estado_con_meta["ultima_actualizacion"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if "fecha_inicio" not in estado_con_meta:
+            estado_con_meta["fecha_inicio"] = datos.get(alumno_id, {}).get("fecha_inicio", estado_con_meta["ultima_actualizacion"])
+
+        datos[alumno_id] = estado_con_meta
+        with open(SESIONES_ACTIVAS_FILE, "w", encoding="utf-8") as f:
+            json.dump(datos, f, indent=2, ensure_ascii=False)
+        return True, "Sesión activa guardada correctamente"
+    except Exception as e:
+        print(f"[ERROR] guardar_sesion_activa: {e}")
+        return False, str(e)
+
+
+def cargar_sesion_activa(alumno_id: str) -> Optional[Dict[str, Any]]:
+    """Recupera el estado completo de una sesión guardada para un alumno_id."""
+    if not alumno_id or not SESIONES_ACTIVAS_FILE.exists():
+        return None
+    try:
+        with open(SESIONES_ACTIVAS_FILE, "r", encoding="utf-8") as f:
+            datos = json.load(f)
+        return datos.get(alumno_id)
+    except Exception as e:
+        print(f"[ERROR] cargar_sesion_activa: {e}")
+        return None
+
+
+def listar_sesiones_activas() -> List[Dict[str, Any]]:
+    """Retorna una lista ordenada de todas las sesiones activas guardadas."""
+    if not SESIONES_ACTIVAS_FILE.exists():
+        return []
+    try:
+        with open(SESIONES_ACTIVAS_FILE, "r", encoding="utf-8") as f:
+            datos = json.load(f)
+        lista = []
+        for a_id, info in datos.items():
+            resumen = {
+                "alumno_id": a_id,
+                "caso_activo_nombre": info.get("caso_activo_nombre", "Caso clínico"),
+                "caso_activo_titulo": info.get("caso_activo_titulo", ""),
+                "caso_nombre": info.get("caso_activo_nombre", "Caso clínico"),
+                "caso_titulo": info.get("caso_activo_titulo", ""),
+                "total_mensajes": len(info.get("mensajes", [])),
+                "turnos_chat": len(info.get("mensajes", [])),
+                "ultima_actualizacion": info.get("ultima_actualizacion", ""),
+                "en_standby": info.get("en_standby", False),
+                "estado_clinico": info.get("estado_escalamiento", {}).get("estado_hemodinamico", "Compensado"),
+                "gasto_ars": info.get("estado_recursos", {}).get("costo_total_ars", 0)
+            }
+            info_combinada = dict(info)
+            info_combinada.update(resumen)
+            lista.append(info_combinada)
+        lista.sort(key=lambda x: x.get("ultima_actualizacion", ""), reverse=True)
+        return lista
+    except Exception as e:
+        print(f"[ERROR] listar_sesiones_activas: {e}")
+        return []
+
+
+def eliminar_sesion_activa(alumno_id: str) -> Tuple[bool, str]:
+    """Elimina la sesión de un alumno cuando completa o reinicia el caso."""
+    if not alumno_id or not SESIONES_ACTIVAS_FILE.exists():
+        return False, "Archivo no existe o ID vacío"
+    try:
+        with open(SESIONES_ACTIVAS_FILE, "r", encoding="utf-8") as f:
+            datos = json.load(f)
+        if alumno_id in datos:
+            del datos[alumno_id]
+            with open(SESIONES_ACTIVAS_FILE, "w", encoding="utf-8") as f:
+                json.dump(datos, f, indent=2, ensure_ascii=False)
+            return True, f"Sesión de {alumno_id} eliminada"
+        return False, f"Sesión de {alumno_id} no encontrada"
+    except Exception as e:
+        print(f"[ERROR] eliminar_sesion_activa: {e}")
+        return False, str(e)
+
+
+
 
 
 # ==================== ORQUESTADOR GEMINI ====================
@@ -6613,11 +6725,29 @@ for _m in list(sys.modules.keys()):
             pass
 
 import urllib.parse
+import streamlit.components.v1 as components
 
 # Configuración de Streamlit
 
 # Inyección de estilos
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+# Keep-alive anti-inactividad para guardias médicas (ping liviano periódico para evitar timeout de WebSocket)
+components.html(
+    """
+    <script>
+    (function() {
+        if (!window._hellerKeepAlive) {
+            window._hellerKeepAlive = setInterval(function() {
+                fetch(window.location.href, { method: 'HEAD', cache: 'no-store' }).catch(function(){});
+            }, 30000);
+        }
+    })();
+    </script>
+    """,
+    height=0,
+    width=0
+)
 
 # Intentar inicializar conexión con Google Sheets si existe la extensión instalada
 conn_gsheets = None
@@ -6627,10 +6757,21 @@ try:
 except Exception:
     conn_gsheets = None
 
-# Inicialización de Session State
-if "alumno_id" not in st.session_state:
-    st.session_state.alumno_id = generar_pseudonimo_estudiante("cohorte_2026")
+# Inicialización de almacenamiento resiliente de sesiones en guardia
+inicializar_almacenamiento_sesiones()
 
+# Sincronización bidireccional de seudónimo del alumno con parámetros de URL (?alumno=...)
+url_alumno = st.query_params.get("alumno")
+if "alumno_id" not in st.session_state:
+    if url_alumno and str(url_alumno).strip():
+        st.session_state.alumno_id = str(url_alumno).strip()
+    else:
+        st.session_state.alumno_id = generar_pseudonimo_estudiante("cohorte_2026")
+        st.query_params["alumno"] = st.session_state.alumno_id
+elif "alumno" not in st.query_params:
+    st.query_params["alumno"] = st.session_state.alumno_id
+
+# Inicialización del estado del simulador
 if "caso_activo_nombre" not in st.session_state:
     primer_caso_nombre = list(BANCO_CASOS.keys())[0]
     primer_caso_info = BANCO_CASOS[primer_caso_nombre]
@@ -6662,6 +6803,51 @@ if "estado_escalamiento" not in st.session_state:
 if "estado_recursos" not in st.session_state:
     st.session_state.estado_recursos = inicializar_estado_recursos()
 
+if "caso_en_standby" not in st.session_state:
+    st.session_state.caso_en_standby = False
+
+# Detección al cargar: ¿Tiene el residente una sesión guardada previa para recuperar?
+if "sesion_recuperada_o_descartada" not in st.session_state:
+    st.session_state.sesion_recuperada_o_descartada = False
+
+if not st.session_state.sesion_recuperada_o_descartada and "sesion_pendiente_recuperar" not in st.session_state:
+    ses_guardada = cargar_sesion_activa(st.session_state.alumno_id)
+    if ses_guardada and len(ses_guardada.get("mensajes", [])) > 1:
+        st.session_state.sesion_pendiente_recuperar = ses_guardada
+    else:
+        st.session_state.sesion_pendiente_recuperar = None
+
+def restaurar_sesion_guardada(sesion_dict):
+    """Restaura en st.session_state un snapshot completo de caso guardado en standby o recuperado."""
+    st.session_state.caso_activo_nombre = sesion_dict.get("caso_activo_nombre", st.session_state.caso_activo_nombre)
+    st.session_state.caso_activo_titulo = sesion_dict.get("caso_activo_titulo", st.session_state.caso_activo_titulo)
+    st.session_state.caso_activo_texto = sesion_dict.get("caso_activo_texto", st.session_state.caso_activo_texto)
+    st.session_state.caso_activo_meta = sesion_dict.get("caso_activo_meta", st.session_state.caso_activo_meta)
+    st.session_state.mensajes = sesion_dict.get("mensajes", st.session_state.mensajes)
+    st.session_state.evaluacion_activa = sesion_dict.get("evaluacion_activa", None)
+    st.session_state.estado_escalamiento = sesion_dict.get("estado_escalamiento") or inicializar_estado_escalamiento(st.session_state.caso_activo_meta, st.session_state.caso_activo_titulo)
+    st.session_state.estado_recursos = sesion_dict.get("estado_recursos") or inicializar_estado_recursos()
+    st.session_state.caso_en_standby = sesion_dict.get("en_standby", False)
+    st.session_state.sesion_pendiente_recuperar = None
+    st.session_state.sesion_recuperada_o_descartada = True
+
+def autoguardar_sesion_actual(forzar=False, en_standby=False):
+    """Guarda automáticamente el estado actual en el disco si hay avances clínicos."""
+    mensajes = st.session_state.get("mensajes", [])
+    if forzar or len(mensajes) > 1:
+        estado_a_guardar = {
+            "caso_activo_nombre": st.session_state.get("caso_activo_nombre"),
+            "caso_activo_titulo": st.session_state.get("caso_activo_titulo"),
+            "caso_activo_texto": st.session_state.get("caso_activo_texto"),
+            "caso_activo_meta": st.session_state.get("caso_activo_meta"),
+            "mensajes": mensajes,
+            "evaluacion_activa": st.session_state.get("evaluacion_activa"),
+            "estado_escalamiento": st.session_state.get("estado_escalamiento"),
+            "estado_recursos": st.session_state.get("estado_recursos"),
+            "en_standby": en_standby or st.session_state.get("caso_en_standby", False)
+        }
+        guardar_sesion_activa(st.session_state.alumno_id, estado_a_guardar)
+
 def reiniciar_caso(nombre_caso, titulo, texto, metadata=None):
     st.session_state.caso_activo_nombre = nombre_caso
     st.session_state.caso_activo_titulo = titulo
@@ -6669,6 +6855,9 @@ def reiniciar_caso(nombre_caso, titulo, texto, metadata=None):
     st.session_state.caso_activo_meta = metadata or {}
     st.session_state.evaluacion_activa = None
     st.session_state.mostrar_sbar = False
+    st.session_state.caso_en_standby = False
+    st.session_state.sesion_pendiente_recuperar = None
+    st.session_state.sesion_recuperada_o_descartada = True
     st.session_state.estado_escalamiento = inicializar_estado_escalamiento(metadata or {}, titulo)
     st.session_state.estado_recursos = inicializar_estado_recursos()
     st.session_state.mensajes = [
@@ -6680,6 +6869,7 @@ def reiniciar_caso(nombre_caso, titulo, texto, metadata=None):
             )
         }
     ]
+    eliminar_sesion_activa(st.session_state.alumno_id)
 
 # --- BARRA LATERAL ---
 with st.sidebar:
@@ -6750,19 +6940,56 @@ with st.sidebar:
         alumno_input = st.text_input("ID Alumno (Seudónimo):", value=st.session_state.alumno_id)
         if alumno_input != st.session_state.alumno_id:
             st.session_state.alumno_id = alumno_input
+            st.query_params["alumno"] = alumno_input
+            ses_buscada = cargar_sesion_activa(alumno_input)
+            if ses_buscada and len(ses_buscada.get("mensajes", [])) > 1:
+                st.session_state.sesion_pendiente_recuperar = ses_buscada
+                st.session_state.sesion_recuperada_o_descartada = False
+            st.rerun()
     with col_id2:
         if st.button("🎲", help="Generar nuevo seudónimo anónimo aleatorio"):
             st.session_state.alumno_id = generar_pseudonimo_estudiante(f"id_{datetime.now().timestamp()}")
+            st.query_params["alumno"] = st.session_state.alumno_id
+            st.session_state.sesion_pendiente_recuperar = None
+            st.session_state.sesion_recuperada_o_descartada = False
             st.rerun()
             
     st.caption("🛡️ Los datos se registran bajo un seudónimo anónimo para auditoría docente sin comprometer PII.")
+
+    # Cajón de Casos en Standby / Reanudación
+    with st.expander("📂 Casos en Standby / Reanudar", expanded=False):
+        sesiones_guardadas = listar_sesiones_activas()
+        if not sesiones_guardadas:
+            st.caption("No hay casos pausados en el servidor.")
+        else:
+            st.caption(f"{len(sesiones_guardadas)} caso(s) activo(s) en memoria de guardia:")
+            for ses in sesiones_guardadas[:6]:
+                es_este = (ses.get("alumno_id") == st.session_state.alumno_id)
+                prefijo = "👉 " if es_este else ""
+                col_s1, col_s2 = st.columns([3, 1])
+                with col_s1:
+                    st.markdown(
+                        f"**{prefijo}{ses.get('alumno_id')}**  \n"
+                        f"<span style='font-size:0.8rem; color:#475569;'>{ses.get('caso_activo_titulo', 'Caso')} ({ses.get('total_mensajes', 0)} msgs)</span>",
+                        unsafe_allow_html=True
+                    )
+                with col_s2:
+                    if st.button("▶️", key=f"btn_reanudar_{ses.get('alumno_id')}", help="Cargar este caso en pantalla"):
+                        st.session_state.alumno_id = ses.get("alumno_id")
+                        st.query_params["alumno"] = ses.get("alumno_id")
+                        restaurar_sesion_guardada(ses)
+                        st.rerun()
 
     st.markdown("---")
     st.markdown("### ⚙️ Selección del Escenario")
     modo_caso = st.radio("Origen del caso:", ["Banco Estándar (Medicina Interna)", "Cargar Caso Personalizado"])
     
     if modo_caso == "Banco Estándar (Medicina Interna)":
-        nombre_sel = st.selectbox("Escenario de práctica:", obtener_nombres_casos())
+        nombres_casos = obtener_nombres_casos()
+        idx_caso = 0
+        if st.session_state.caso_activo_nombre in nombres_casos:
+            idx_caso = nombres_casos.index(st.session_state.caso_activo_nombre)
+        nombre_sel = st.selectbox("Escenario de práctica:", nombres_casos, index=idx_caso)
         if nombre_sel != st.session_state.caso_activo_nombre:
             info_c = obtener_caso(nombre_sel)
             reiniciar_caso(nombre_sel, info_c["titulo"], info_c["viñeta"], info_c)
@@ -6867,6 +7094,26 @@ tab_simulador, tab_deskilling, tab_mapas, tab_videoteca, tab_gobernanza, tab_pro
 # PESTAÑA 1: SIMULADOR CLÍNICO
 # ==========================================
 with tab_simulador:
+    # Banner de Reanudación de Sesión previa / Standby detectada
+    ses_pend = st.session_state.get("sesion_pendiente_recuperar")
+    if ses_pend:
+        st.info(
+            f"🔔 **Caso en curso detectado para el residente `{st.session_state.alumno_id}`:**  \n"
+            f"Se encontró una sesión previa en **'{ses_pend.get('caso_activo_titulo')}'** con **{len(ses_pend.get('mensajes', []))} turnos de discusión** y parámetros registrados."
+        )
+        col_rec1, col_rec2 = st.columns([1, 1])
+        with col_rec1:
+            if st.button("▶️ Continuar donde lo dejé (Reanudar Caso)", type="primary", width="stretch", key="btn_reanudar_banner"):
+                restaurar_sesion_guardada(ses_pend)
+                st.success("✅ Caso reanudado con éxito. ¡Continúa tu discusión!")
+                st.rerun()
+        with col_rec2:
+            if st.button("🔄 Descartar y Empezar de Cero", width="stretch", key="btn_descartar_banner"):
+                eliminar_sesion_activa(st.session_state.alumno_id)
+                st.session_state.sesion_pendiente_recuperar = None
+                st.session_state.sesion_recuperada_o_descartada = True
+                st.rerun()
+
     # Viñeta clínica visual
     meta = st.session_state.get("caso_activo_meta", {})
     area_tag = meta.get("area", "Medicina Interna")
@@ -6884,6 +7131,27 @@ with tab_simulador:
             <div class="vignette-tags">{tags_html}</div>
         </div>
     """, unsafe_allow_html=True)
+
+    # Barra de Acción Rápida: Standby / Pausa de Guardia
+    if st.session_state.get("caso_en_standby", False):
+        st.warning(
+            "⏸️ **Caso en Standby (Pausado por Guardia):** Este escenario está resguardado en el servidor. "
+            "Puedes desconectarte para atender urgencias o evaluar pacientes reales. Todo tu progreso se mantiene intacto."
+        )
+        col_st1, col_st2 = st.columns([2, 1])
+        with col_st2:
+            if st.button("▶️ Reanudar Discusión Socrática", type="primary", width="stretch", key="btn_despausar_standby"):
+                st.session_state.caso_en_standby = False
+                autoguardar_sesion_actual(forzar=True, en_standby=False)
+                st.rerun()
+    else:
+        col_vinfo, col_vbtn = st.columns([2.8, 1.2])
+        with col_vbtn:
+            if st.button("⏸️ Dejar Caso en Standby (Pausa de Guardia)", width="stretch", key="btn_poner_standby", help="Guarda todo el estado (signos vitales, estudios solicitados, tiempo y discusión) para que puedas cerrar la pestaña o atender una urgencia sin perder nada."):
+                st.session_state.caso_en_standby = True
+                autoguardar_sesion_actual(forzar=True, en_standby=True)
+                st.success("💾 ¡Caso guardado en Standby! Puedes salir tranquilamente y volver en cualquier momento.")
+                st.rerun()
     
     # Expandible de banderas rojas para el docente o residente en duda
     with st.expander("🔍 Orientación Metacognitiva & Banderas Rojas (Tutor Docente)", expanded=False):
@@ -7201,6 +7469,7 @@ with tab_simulador:
                             "Conclusion_Docente": res_eval.get("conclusion_docente", "")
                         }
                         guardar_registro_evaluacion(row_ev)
+                        autoguardar_sesion_actual(forzar=True)
                         st.success("✅ ¡Evaluación colegiada completada y registrada en el legajo docente!")
                     except Exception as e_ev:
                         st.error(f"Error al generar la evaluación: {str(e_ev)}")
@@ -7404,6 +7673,7 @@ with tab_simulador:
 
             # Registro en historial de chat
             st.session_state.mensajes.append({"role": "user", "parts": prompt_final})
+            autoguardar_sesion_actual()
             with st.chat_message("user", avatar="👨‍⚕️"):
                 st.markdown(prompt_final)
 
@@ -7435,7 +7705,7 @@ with tab_simulador:
                             conn_gsheets=conn_gsheets,
                             url_gsheets=url_hoja if url_hoja else None,
                             estado_escalamiento=st.session_state.estado_escalamiento,
-                            estado_recursos=None
+                            estado_recursos=st.session_state.get("estado_recursos")
                         )
                         
                         if tools_usadas:
@@ -7453,6 +7723,7 @@ with tab_simulador:
 
                     st.markdown(respuesta_ia)
                     st.session_state.mensajes.append({"role": "model", "parts": respuesta_ia})
+                    autoguardar_sesion_actual()
                     # Recarga suave para que la conversación completa quede arriba y la barra abajo
                     st.rerun()
 
