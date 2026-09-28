@@ -18,7 +18,8 @@ import pandas as pd
 import altair as alt
 from google import genai
 from google.genai import types
-
+from ai.gemini_client import generate_content, get_api_key, GeminiClientError
+from ai.fallbacks import FALLBACK_TURNO_SOCRATICO, FALLBACK_EVALUACION
 # ---------------------------------------------------------
 # CONFIGURACION DE PAGINA: PRIMER COMANDO STREAMLIT
 # ---------------------------------------------------------
