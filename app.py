@@ -7132,21 +7132,13 @@ with tab_simulador:
                 st.session_state.sesion_recuperada_o_descartada = True
                 st.rerun()
 
-    # Viñeta clínica visual
+    # Viñeta clínica visual (sin spoilers de sesgos, área o dificultad)
     meta = st.session_state.get("caso_activo_meta", {})
-    area_tag = meta.get("area", "Medicina Interna")
-    dificultad_tag = meta.get("dificultad", "Intermedia")
-    sesgos_sugeridos = meta.get("sesgos_esperados", [])
-    
-    tags_html = f"<span class='vignette-tag'>🏷️ {area_tag}</span><span class='vignette-tag'>🎯 Dificultad: {dificultad_tag}</span>"
-    for s in sesgos_sugeridos:
-        tags_html += f"<span class='vignette-tag' style='background-color:#fee2e2;color:#991b1b;'>⚠️ Trampa: {s}</span>"
 
     st.markdown(f"""
         <div class="vignette-card">
             <div class="vignette-title">📄 Viñeta: {st.session_state.caso_activo_titulo}</div>
             <div class="vignette-text">{st.session_state.caso_activo_texto}</div>
-            <div class="vignette-tags">{tags_html}</div>
         </div>
     """, unsafe_allow_html=True)
 
