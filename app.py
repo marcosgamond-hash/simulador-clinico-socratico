@@ -7163,55 +7163,6 @@ with tab_simulador:
                 st.success("💾 ¡Caso guardado en Standby! Puedes salir tranquilamente y volver en cualquier momento.")
                 st.rerun()
     
-    # Expandible de banderas rojas para el docente o residente en duda
-    with st.expander("🔍 Orientación Metacognitiva & Banderas Rojas (Tutor Docente)", expanded=False):
-        red_flags = meta.get("red_flags", ["Priorizar estabilización hemodinámica y exploración metódica de diagnósticos diferenciales."])
-        for rf in red_flags:
-            st.markdown(f"• **Alerta Clínica:** {rf}")
-        calcs_rec = meta.get("calculadoras_pertinentes", [])
-        if calcs_rec:
-            st.markdown(f"• **Herramientas de Auditoría vinculadas:** `{', '.join(calcs_rec)}`")
-            
-        guia_url = meta.get("guia_oficial_url", "")
-        guia_tit = meta.get("guia_oficial_titulo", "")
-        guia_soc = meta.get("guia_oficial_sociedad", "")
-        if guia_url:
-            st.markdown(f"""
-                <div style="margin-top: 10px; padding: 10px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;">
-                    <span style="font-weight: 700; color: #166534; font-size: 0.85rem;">📖 Guía Clínica Oficial de Referencia (Gold Standard):</span><br>
-                    <span style="color: #1e293b; font-size: 0.86rem;">{guia_tit} — <em>{guia_soc}</em></span><br>
-                    <a href="{guia_url}" target="_blank" rel="noopener noreferrer" style="color: #047857; font-weight: 600; font-size: 0.82rem; text-decoration: underline; display: inline-block; margin-top: 4px;">
-                        🔗 Abrir Guía Oficial Completa (Acceso Libre y Gratuito) &rarr;
-                    </a>
-                </div>
-            """, unsafe_allow_html=True)
-
-    # Precedentes institucionales activos del Hospital Heller para este caso (RAG Local)
-    precedentes_activos = obtener_precedentes_relevantes(
-        st.session_state.caso_activo_titulo,
-        st.session_state.caso_activo_texto
-    )
-    if precedentes_activos:
-        with st.expander(f"🏛️ Doctrina del Hospital Heller Activa ({len(precedentes_activos)} criterio(s) de ateneo)", expanded=False):
-            st.markdown(
-                f"<div style='padding: 10px 14px; background: #eff6ff; border-left: 4px solid #1e3a8a; border-radius: 6px; margin-bottom: 12px;'>"
-                f"<strong style='color: #1e3a8a;'>🏛️ Memoria Institucional & Human-in-the-Loop:</strong> "
-                f"<span style='color: #334155; font-size: 0.88rem;'>Socrático ha recuperado {len(precedentes_activos)} dictamen(es) y acuerdos clínicos formalmente consensuados en los Ateneos del Hospital Dr. Horacio Heller aplicables a este escenario. "
-                f"El tutor socrático interrogará activamente al residente para garantizar la alineación con la práctica institucional local.</span>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-            for p_inst in precedentes_activos:
-                st.markdown(
-                    f"**📌 {p_inst.get('tema', 'Criterio')}**\n\n"
-                    f"> *\"{p_inst.get('criterio_ateneo', '')}\"*\n\n"
-                    f"<span style='color: #64748b; font-size: 0.82rem;'>🏛️ Origen: <strong>{p_inst.get('origen', 'Ateneo')}</strong> | "
-                    f"Docente: <strong>{p_inst.get('docente_responsable', 'Docencia')}</strong> | "
-                    f"Registrado: {p_inst.get('fecha_registro', '')}</span>\n\n---",
-                    unsafe_allow_html=True
-                )
-
-    # =========================================================
     # =========================================================
     # CINTA CLÍNICA COMPACTA: SIGNOS VITALES & TIEMPO EN GUARDIA
     # =========================================================
@@ -7285,10 +7236,6 @@ with tab_simulador:
             st.markdown(f"• **Estado del Sensorio:** {sv.get('sensorio', 'N/A')}")
             st.markdown(f"• **Estado de Perfusión:** {sv.get('perfusion', 'N/A')}")
             st.caption("ℹ️ *Si el paciente se descompensa en guardia, indique su conducta de reanimación (cristaloides, vasopresores, O2, etc.) directamente en el chat para estabilizarlo.*")
-
-    # Indicador de estado si falta la API Key
-    if not gemini_api_key:
-        st.info("💡 **Aviso:** Ingrese su **Google AI Studio API Key** en la barra lateral izquierda para habilitar el diálogo con el tutor socrático y la evaluación colegiada.")
 
     # Barra de atajos metacognitivos rápidos, derivación a ateneo (Human-in-the-loop) y cierre evaluador
     st.markdown("##### ⚡ Estrategias Metacognitivas, Protocolo SBAR & Cierre Evaluador:")
