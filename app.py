@@ -6354,7 +6354,9 @@ client = genai.Client(api_key=api_key_limpia, http_options=http_options)
         print(f"[DEBUG GEMINI ERROR FINAL] Contingencia directa falló: {e_directo}", flush=True)
         
     # Si todos los reintentos fallaron, propagar el error original
-    raise ultimo_error or RuntimeError("No fue posible obtener respuesta del modelo.")
+    # Si todos los reintentos fallaron, devolver mensaje socrático de respaldo
+# en lugar de romper la aplicación
+return FALLBACK_TURNO_SOCRATICO, []
 
 
 def generar_respuesta_tutor_asincronico(
