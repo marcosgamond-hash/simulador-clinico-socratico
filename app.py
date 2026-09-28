@@ -6172,7 +6172,22 @@ def procesar_turno_socratico(
     import sys, traceback
     
     api_key_limpia = api_key.strip() if api_key else ""
-    client = genai.Client(api_key=api_key_limpia)
+if not api_key_limpia:
+    return FALLBACK_TURNO_SOCRATICO, []
+
+# Cliente con reintentos automáticos para errores 429 y transitorios
+http_options = types.HttpOptions(
+    timeout=90_000,
+    retry_options=types.HttpRetryOptions(
+        attempts=5,
+        initial_delay=1.0,
+        max_delay=25.0,
+        exp_base=2.0,
+        jitter=1.0,
+        http_status_codes=[408, 429, 500, 502, 503, 504],
+    ),
+)
+client = genai.Client(api_key=api_key_limpia, http_options=http_options)
     system_instruction = construir_system_instruction(
         viñeta_texto,
         titulo_caso,
