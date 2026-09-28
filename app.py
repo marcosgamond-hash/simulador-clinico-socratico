@@ -223,6 +223,12 @@ if "estado_recursos" not in st.session_state:
 if "caso_en_standby" not in st.session_state:
     st.session_state.caso_en_standby = False
 
+if "doble_control_activo" not in st.session_state:
+    st.session_state.doble_control_activo = True
+
+if "borrador_respuesta" not in st.session_state:
+    st.session_state.borrador_respuesta = ""
+
 # Detección al cargar: ¿Tiene el residente una sesión guardada previa para recuperar?
 if "sesion_recuperada_o_descartada" not in st.session_state:
     st.session_state.sesion_recuperada_o_descartada = False
@@ -245,19 +251,22 @@ def restaurar_sesion_guardada(sesion_dict):
     st.session_state.estado_escalamiento = sesion_dict.get("estado_escalamiento") or inicializar_estado_escalamiento(st.session_state.caso_activo_meta, st.session_state.caso_activo_titulo)
     st.session_state.estado_recursos = sesion_dict.get("estado_recursos") or inicializar_estado_recursos()
     st.session_state.caso_en_standby = sesion_dict.get("en_standby", False)
+    st.session_state.borrador_respuesta = sesion_dict.get("borrador_respuesta", "")
     st.session_state.sesion_pendiente_recuperar = None
     st.session_state.sesion_recuperada_o_descartada = True
 
 def autoguardar_sesion_actual(forzar=False, en_standby=False):
     """Guarda automáticamente el estado actual en el disco si hay avances clínicos."""
     mensajes = st.session_state.get("mensajes", [])
-    if forzar or len(mensajes) > 1:
+    borrador = st.session_state.get("borrador_respuesta", "")
+    if forzar or len(mensajes) > 1 or bool(borrador.strip()):
         estado_a_guardar = {
             "caso_activo_nombre": st.session_state.get("caso_activo_nombre"),
             "caso_activo_titulo": st.session_state.get("caso_activo_titulo"),
             "caso_activo_texto": st.session_state.get("caso_activo_texto"),
             "caso_activo_meta": st.session_state.get("caso_activo_meta"),
             "mensajes": mensajes,
+            "borrador_respuesta": borrador,
             "evaluacion_activa": st.session_state.get("evaluacion_activa"),
             "estado_escalamiento": st.session_state.get("estado_escalamiento"),
             "estado_recursos": st.session_state.get("estado_recursos"),
@@ -273,6 +282,7 @@ def reiniciar_caso(nombre_caso, titulo, texto, metadata=None):
     st.session_state.evaluacion_activa = None
     st.session_state.mostrar_sbar = False
     st.session_state.caso_en_standby = False
+    st.session_state.borrador_respuesta = ""
     st.session_state.sesion_pendiente_recuperar = None
     st.session_state.sesion_recuperada_o_descartada = True
     st.session_state.estado_escalamiento = inicializar_estado_escalamiento(metadata or {}, titulo)
@@ -396,6 +406,14 @@ with st.sidebar:
                         st.query_params["alumno"] = ses.get("alumno_id")
                         restaurar_sesion_guardada(ses)
                         st.rerun()
+
+    st.markdown("---")
+    st.markdown("#### 🛡️ Seguridad de Envío")
+    st.session_state.doble_control_activo = st.toggle(
+        "Doble control antes de enviar",
+        value=st.session_state.get("doble_control_activo", True),
+        help="Evita que un 'Enter' accidental envíe respuestas incompletas. Muestra una tarjeta para revisar, editar con multilínea y confirmar antes de consultar a Socrático."
+    )
 
     st.markdown("---")
     st.markdown("### ⚙️ Selección del Escenario")
@@ -1043,9 +1061,77 @@ with tab_simulador:
         with st.chat_message("assistant" if role == "model" else "user", avatar=avatar):
             st.markdown(msg["parts"])
 
+    prompt_confirmado = None
+    borrador_actual = st.session_state.get("borrador_respuesta", "")
+
+    # Si hay un borrador activo pendiente de confirmación, mostrar la tarjeta de revisión y edición multilínea
+    if borrador_actual:
+        with st.container():
+            st.markdown(
+                """
+                <div style="background: #f8fafc; border: 2px solid #2563eb; border-radius: 10px; padding: 14px 18px; margin-top: 15px; margin-bottom: 12px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                        <span style="font-weight: 700; color: #1e3a8a; font-size: 0.95rem;">
+                            🛡️ Doble Control Metacognitivo — Revisión Previa al Envío
+                        </span>
+                        <span style="font-size: 0.76rem; background: #dbeafe; color: #1e40af; padding: 3px 10px; border-radius: 12px; font-weight: 700;">
+                            Borrador en Pausa
+                        </span>
+                    </div>
+                    <div style="font-size: 0.84rem; color: #475569; margin-bottom: 10px; line-height: 1.4;">
+                        Revise su planteo antes de que sea procesado por el tutor socrático. ¿Respondió a todos los interrogantes planteados? Puede editar libremente usando <strong>Enter para saltos de línea</strong> o agregar más texto desde la barra inferior.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            texto_editado = st.text_area(
+                "Edición del borrador clínico (permite saltos de línea):",
+                value=borrador_actual,
+                height=130,
+                key="text_area_borrador_clinico",
+                help="Escriba párrafos con Enter sin riesgo de envío prematuro."
+            )
+
+            if texto_editado != borrador_actual:
+                st.session_state.borrador_respuesta = texto_editado
+                autoguardar_sesion_actual()
+
+            col_b1, col_b2, col_b3 = st.columns([2, 1.2, 1])
+            with col_b1:
+                if st.button("🚀 Confirmar y Enviar al Comité", type="primary", width="stretch", key="btn_confirmar_envio_socratico"):
+                    if texto_editado and texto_editado.strip():
+                        prompt_confirmado = texto_editado.strip()
+                        st.session_state.borrador_respuesta = ""
+                        autoguardar_sesion_actual()
+                    else:
+                        st.warning("El borrador está vacío. Ingrese su razonamiento clínico.")
+            with col_b2:
+                if st.button("➕ Anexar desde Chat", width="stretch", key="btn_instruccion_anexar", help="Escriba en el campo inferior para sumar información a este borrador"):
+                    st.info("💡 Escriba en la barra inferior para anexar más texto a este borrador.")
+            with col_b3:
+                if st.button("🗑️ Descartar", width="stretch", key="btn_descartar_borrador_socr"):
+                    st.session_state.borrador_respuesta = ""
+                    autoguardar_sesion_actual()
+                    st.rerun()
+
     # Entrada del usuario: siempre anclada al final
     input_chat = st.chat_input("Plantee su hipótesis diagnóstica, justificación o estudios a solicitar...")
-    prompt_final = st.session_state.pop("prompt_pendiente", None) or input_chat
+
+    # Intercepción de nuevo input del chat según estado de doble control
+    if input_chat:
+        if st.session_state.get("doble_control_activo", True):
+            if st.session_state.get("borrador_respuesta"):
+                st.session_state.borrador_respuesta += "\n\n" + input_chat.strip()
+            else:
+                st.session_state.borrador_respuesta = input_chat.strip()
+            autoguardar_sesion_actual()
+            st.rerun()
+        else:
+            prompt_confirmado = input_chat
+
+    prompt_final = prompt_confirmado or st.session_state.pop("prompt_pendiente", None)
 
     if prompt_final:
         if not gemini_api_key:
