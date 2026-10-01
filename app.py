@@ -701,6 +701,8 @@ SESIONES_ACTIVAS_FILE = DATA_DIR / "sesiones_activas.json"
 
 # Canal de correo institucional docente / jefatura
 DEFAULT_DOCENTE_EMAIL = "clinicahellersocratico@gmail.com"
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
 
 # Clave maestra de acceso docente / jefatura
 DOCENTE_PASSWORD = "heller2026"
@@ -4512,12 +4514,19 @@ def sanitizar_texto_clinico(texto: str) -> Tuple[str, List[str]]:
     return texto_limpio, list(set(elementos_redactados))
 
 
-def generar_pseudonimo_estudiante(clave_semilla: str = "med_residente") -> str:
+import uuid
+
+
+def generar_pseudonimo_estudiante(clave_semilla: str = None) -> str:
     """
-    Genera un identificador seudónimo anónimo y consistente mediante hash SHA-256.
-    Permite trazabilidad de la cohorte educativa sin almacenar datos de identidad real.
+    Genera un identificador seudónimo anónimo único por usuario o sesión.
+    Si se provee una clave_semilla específica, genera un hash determinista;
+    si es None o vacía, genera un identificador aleatorio criptográficamente seguro único por usuario.
     """
-    h = hashlib.sha256(clave_semilla.encode('utf-8')).hexdigest()[:8]
+    if clave_semilla and str(clave_semilla).strip():
+        h = hashlib.sha256(str(clave_semilla).encode('utf-8')).hexdigest()[:8]
+    else:
+        h = uuid.uuid4().hex[:8]
     return f"ALUMNO-{h.upper()}"
 
 
@@ -6706,6 +6715,139 @@ RESPONDE ÚNICAMENTE CON UN OBJETO JSON VÁLIDO CON ESTA ESTRUCTURA EXACTA:
         base["advertencia_api"] = str(e)
         
     return base
+# ==================== SERVICIO DE EMAIL SMTP ====================
+import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Tuple, Optional
+import streamlit as st
+
+DEFAULT_DOCENTE_EMAIL = "clinicahellersocratico@gmail.com"
+DEFAULT_SMTP_SERVER = "smtp.gmail.com"
+DEFAULT_SMTP_PORT = 587
+
+
+def obtener_credenciales_smtp() -> Tuple[str, str]:
+    """
+    Obtiene el remitente y la contraseña de aplicación de Gmail desde:
+    1. st.secrets ("GMAIL_APP_PASSWORD" o "SMTP_PASSWORD")
+    2. os.environ ("GMAIL_APP_PASSWORD" o "SMTP_PASSWORD")
+    3. st.session_state (si el docente la ingresó en tiempo de ejecución)
+    """
+    remitente = DEFAULT_DOCENTE_EMAIL
+    app_pwd = ""
+    try:
+        if hasattr(st, "secrets"):
+            if "GMAIL_APP_PASSWORD" in st.secrets:
+                app_pwd = str(st.secrets["GMAIL_APP_PASSWORD"]).strip()
+            elif "SMTP_PASSWORD" in st.secrets:
+                app_pwd = str(st.secrets["SMTP_PASSWORD"]).strip()
+            if "GMAIL_SENDER" in st.secrets:
+                remitente = str(st.secrets["GMAIL_SENDER"]).strip()
+    except Exception:
+        pass
+    if not app_pwd:
+        app_pwd = os.environ.get("GMAIL_APP_PASSWORD", os.environ.get("SMTP_PASSWORD", "")).strip()
+    if os.environ.get("GMAIL_SENDER"):
+        remitente = os.environ.get("GMAIL_SENDER").strip()
+    if not app_pwd and hasattr(st, "session_state"):
+        app_pwd = st.session_state.get("cfg_gmail_app_pwd", "").strip()
+    return remitente, app_pwd
+
+
+def enviar_email_consulta_docente(
+    alumno_id: str,
+    caso_clinico: str,
+    tipo_consulta: str,
+    texto_consulta: str,
+    orientacion_ia: str = "",
+    email_residente: str = "",
+    fecha_utc: str = "",
+    destinatario: str = DEFAULT_DOCENTE_EMAIL
+) -> Tuple[bool, str]:
+    """
+    Envía un correo electrónico automático en segundo plano al docente/jefatura
+    a través del servidor SMTP de Gmail (puerto 587 con STARTTLS).
+    """
+    remitente, app_password = obtener_credenciales_smtp()
+    if not app_password:
+        return False, "Falta configurar GMAIL_APP_PASSWORD en los Secrets del servidor."
+
+    password_limpia = app_password.replace(" ", "")
+    asunto = f"[SOCRÁTICO - CONSULTA] {tipo_consulta} | {caso_clinico} | {alumno_id}"
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = asunto
+    msg["From"] = f"Simulador Socrático Hospital Heller <{remitente}>"
+    msg["To"] = destinatario
+    if email_residente and "@" in email_residente:
+        msg["Reply-To"] = email_residente
+
+    cuerpo_plano = (
+        "NUEVA CONSULTA DESDE EL SIMULADOR SOCRÁTICO\n"
+        "Hospital Dr. Horacio Heller — Residencia de Clínica Médica\n"
+        "------------------------------------------------------------\n"
+        f"• Residente: {alumno_id}\n"
+        f"• Correo Residente: {email_residente or 'No especificado'}\n"
+        f"• Caso Clínico: {caso_clinico}\n"
+        f"• Tipo de Consulta: {tipo_consulta}\n"
+        f"• Fecha/Hora: {fecha_utc} UTC\n\n"
+        "DETALLE DE LA CONSULTA:\n"
+        f"{texto_consulta}\n\n"
+        "------------------------------------------------------------\n"
+        "ORIENTACIÓN PRELIMINAR DEL TUTOR IA (24/7):\n"
+        f"{orientacion_ia}\n"
+        "------------------------------------------------------------\n"
+        f"Para responderle al alumno, escriba a: {email_residente or destinatario}\n"
+    )
+
+    ia_box = f'<div style="font-size:0.85rem;font-weight:700;color:#16a34a;margin-top:16px;">Orientación Preliminar Tutor IA:</div><div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:12px;border-radius:4px;color:#166534;margin-top:6px;">{orientacion_ia}</div>' if orientacion_ia and not orientacion_ia.startswith("⚠️") else ''
+
+    cuerpo_html = f'''<!DOCTYPE html>
+<html>
+<body style="font-family:sans-serif;background-color:#f8fafc;padding:20px;color:#0f172a;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+    <div style="background:#0f172a;color:#ffffff;padding:18px 20px;border-bottom:3px solid #0284c7;">
+      <span style="font-size:0.75rem;font-weight:700;background:#0284c7;color:#fff;padding:2px 8px;border-radius:4px;">HOSPITAL DR. HORACIO HELLER</span>
+      <h2 style="margin:8px 0 2px 0;font-size:1.2rem;">📬 Nueva Consulta de Residente</h2>
+      <p style="margin:0;font-size:0.85rem;color:#94a3b8;">Simulador Socrático de Razonamiento Clínico</p>
+    </div>
+    <div style="padding:20px;">
+      <table style="width:100%;font-size:0.9rem;border-collapse:collapse;margin-bottom:16px;">
+        <tr><td style="color:#64748b;padding:4px 0;"><strong>Residente:</strong></td><td><strong>{alumno_id}</strong></td></tr>
+        <tr><td style="color:#64748b;padding:4px 0;"><strong>Email:</strong></td><td>{email_residente or '<span style="color:#94a3b8;">No especificado</span>'}</td></tr>
+        <tr><td style="color:#64748b;padding:4px 0;"><strong>Caso:</strong></td><td>{caso_clinico}</td></tr>
+        <tr><td style="color:#64748b;padding:4px 0;"><strong>Categoría:</strong></td><td><span style="background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;font-size:0.8rem;">{tipo_consulta}</span></td></tr>
+        <tr><td style="color:#64748b;padding:4px 0;"><strong>Fecha/Hora:</strong></td><td>{fecha_utc} UTC</td></tr>
+      </table>
+      <div style="font-size:0.85rem;font-weight:700;color:#0284c7;text-transform:uppercase;">Detalle de la Consulta:</div>
+      <div style="background:#f8fafc;border-left:4px solid #0284c7;padding:12px;border-radius:4px;margin-top:6px;font-size:0.92rem;line-height:1.5;">{texto_consulta}</div>
+      {ia_box}
+    </div>
+    <div style="background:#f1f5f9;padding:12px 20px;font-size:0.8rem;color:#64748b;text-align:center;border-top:1px solid #e2e8f0;">
+      Consulta registrada en la <strong>Pestaña 3 (Gobernanza)</strong>. Responda a este correo para contactar al residente.
+    </div>
+  </div>
+</body>
+</html>'''
+
+    msg.attach(MIMEText(cuerpo_plano, "plain", "utf-8"))
+    msg.attach(MIMEText(cuerpo_html, "html", "utf-8"))
+
+    try:
+        servidor = smtplib.SMTP(DEFAULT_SMTP_SERVER, DEFAULT_SMTP_PORT, timeout=12)
+        servidor.ehlo()
+        servidor.starttls()
+        servidor.ehlo()
+        servidor.login(remitente, password_limpia)
+        servidor.sendmail(remitente, [destinatario], msg.as_string())
+        servidor.quit()
+        return True, f"Correo despachado con éxito a {destinatario}."
+    except smtplib.SMTPAuthenticationError:
+        return False, "Error de autenticación SMTP: La contraseña de aplicación de Gmail es inválida o fue revocada."
+    except Exception as e:
+        return False, f"Fallo en conexión SMTP ({type(e).__name__}): {str(e)}"
 # ==================== APLICACION STREAMLIT ====================
 import streamlit as st
 import pandas as pd
@@ -6766,7 +6908,8 @@ if "alumno_id" not in st.session_state:
     if url_alumno and str(url_alumno).strip():
         st.session_state.alumno_id = str(url_alumno).strip()
     else:
-        st.session_state.alumno_id = generar_pseudonimo_estudiante("cohorte_2026")
+        # Generar un identificador único por usuario/sesión
+        st.session_state.alumno_id = generar_pseudonimo_estudiante()
         st.query_params["alumno"] = st.session_state.alumno_id
 elif "alumno" not in st.query_params:
     st.query_params["alumno"] = st.session_state.alumno_id
@@ -6818,7 +6961,7 @@ if "sesion_recuperada_o_descartada" not in st.session_state:
 
 if not st.session_state.sesion_recuperada_o_descartada and "sesion_pendiente_recuperar" not in st.session_state:
     ses_guardada = cargar_sesion_activa(st.session_state.alumno_id)
-    if ses_guardada and len(ses_guardada.get("mensajes", [])) > 1:
+    if ses_guardada and (len(ses_guardada.get("mensajes", [])) > 1 or ses_guardada.get("en_standby") or bool(ses_guardada.get("borrador_respuesta", "").strip())):
         st.session_state.sesion_pendiente_recuperar = ses_guardada
     else:
         st.session_state.sesion_pendiente_recuperar = None
@@ -6952,13 +7095,13 @@ with st.sidebar:
             st.session_state.alumno_id = alumno_input
             st.query_params["alumno"] = alumno_input
             ses_buscada = cargar_sesion_activa(alumno_input)
-            if ses_buscada and len(ses_buscada.get("mensajes", [])) > 1:
+            if ses_buscada and (len(ses_buscada.get("mensajes", [])) > 1 or ses_buscada.get("en_standby") or bool(ses_buscada.get("borrador_respuesta", "").strip())):
                 st.session_state.sesion_pendiente_recuperar = ses_buscada
                 st.session_state.sesion_recuperada_o_descartada = False
             st.rerun()
     with col_id2:
         if st.button("🎲", help="Generar nuevo seudónimo anónimo aleatorio"):
-            st.session_state.alumno_id = generar_pseudonimo_estudiante(f"id_{datetime.now().timestamp()}")
+            st.session_state.alumno_id = generar_pseudonimo_estudiante()
             st.query_params["alumno"] = st.session_state.alumno_id
             st.session_state.sesion_pendiente_recuperar = None
             st.session_state.sesion_recuperada_o_descartada = False
@@ -6966,29 +7109,26 @@ with st.sidebar:
             
     st.caption("🛡️ Los datos se registran bajo un seudónimo anónimo para auditoría docente sin comprometer PII.")
 
-    # Cajón de Casos en Standby / Reanudación
-    with st.expander("📂 Casos en Standby / Reanudar", expanded=False):
-        sesiones_guardadas = listar_sesiones_activas()
-        if not sesiones_guardadas:
-            st.caption("No hay casos pausados en el servidor.")
+    # Cajón de Caso Personal en Standby (Privado para cada usuario)
+    with st.expander("📂 Mi Caso Guardado / Standby", expanded=False):
+        mi_ses = cargar_sesion_activa(st.session_state.alumno_id)
+        if mi_ses and (len(mi_ses.get("mensajes", [])) > 1 or mi_ses.get("en_standby") or bool(mi_ses.get("borrador_respuesta", "").strip())):
+            st.markdown(f"**Tu caso guardado:**  \n`{mi_ses.get('caso_activo_titulo', 'Caso Clínico')}`")
+            st.caption(f"Último avance: {mi_ses.get('ultima_actualizacion', 'Hoy')} ({len(mi_ses.get('mensajes', []))} turnos de discusión)")
+            col_sb1, col_sb2 = st.columns(2)
+            with col_sb1:
+                if st.button("▶️ Cargar Mi Caso", key="btn_reanudar_propia_sesion", width="stretch"):
+                    restaurar_sesion_guardada(mi_ses)
+                    st.rerun()
+            with col_sb2:
+                if st.button("🗑️ Descartar", key="btn_descartar_propia_sesion", width="stretch"):
+                    eliminar_sesion_activa(st.session_state.alumno_id)
+                    st.session_state.caso_en_standby = False
+                    st.session_state.sesion_pendiente_recuperar = None
+                    st.session_state.sesion_recuperada_o_descartada = True
+                    st.rerun()
         else:
-            st.caption(f"{len(sesiones_guardadas)} caso(s) activo(s) en memoria de guardia:")
-            for ses in sesiones_guardadas[:6]:
-                es_este = (ses.get("alumno_id") == st.session_state.alumno_id)
-                prefijo = "👉 " if es_este else ""
-                col_s1, col_s2 = st.columns([3, 1])
-                with col_s1:
-                    st.markdown(
-                        f"**{prefijo}{ses.get('alumno_id')}**  \n"
-                        f"<span style='font-size:0.8rem; color:#475569;'>{ses.get('caso_activo_titulo', 'Caso')} ({ses.get('total_mensajes', 0)} msgs)</span>",
-                        unsafe_allow_html=True
-                    )
-                with col_s2:
-                    if st.button("▶️", key=f"btn_reanudar_{ses.get('alumno_id')}", help="Cargar este caso en pantalla"):
-                        st.session_state.alumno_id = ses.get("alumno_id")
-                        st.query_params["alumno"] = ses.get("alumno_id")
-                        restaurar_sesion_guardada(ses)
-                        st.rerun()
+            st.caption("No tienes ningún caso pausado o en standby para tu usuario.")
 
     st.markdown("---")
     st.markdown("#### 🛡️ Seguridad de Envío")
@@ -7346,44 +7486,71 @@ with tab_simulador:
                         ok, msg_c = guardar_consulta_feedback(consulta_dict)
                         if ok:
                             st.session_state.ultima_consulta_guardada = consulta_dict
-                            st.success("✅ ¡Consulta registrada exitosamente en el buzón docente!")
+                            # Despacho automático de correo por SMTP (Gmail)
+                            ok_mail, msg_mail = enviar_email_consulta_docente(
+                                alumno_id=f_estudiante,
+                                caso_clinico=st.session_state.caso_activo_titulo,
+                                tipo_consulta=f_tipo,
+                                texto_consulta=f_texto.strip(),
+                                orientacion_ia=resp_tutor_ia,
+                                email_residente=f_email_residente.strip() if f_email_residente else "",
+                                fecha_utc=t_utc,
+                                destinatario=DEFAULT_DOCENTE_EMAIL
+                            )
+                            st.session_state.ultima_consulta_mail_status = (ok_mail, msg_mail)
+                            if ok_mail:
+                                st.success(f"✅ ¡Consulta registrada y enviada automáticamente a {DEFAULT_DOCENTE_EMAIL}!")
+                            else:
+                                st.success("✅ ¡Consulta registrada exitosamente en el buzón docente!")
                         else:
                             st.error(f"Error al registrar: {msg_c}")
                             
-        # Si se guardó una consulta recién, mostrar el feedback y el botón direct mailto
+        # Si se guardó una consulta recién, mostrar el feedback y el estado del correo
         if "ultima_consulta_guardada" in st.session_state and st.session_state.ultima_consulta_guardada:
             uc = st.session_state.ultima_consulta_guardada
             if uc.get("Caso_Clinico") == st.session_state.caso_activo_titulo:
                 st.markdown("#### 🩺 Orientación del Tutor Clínico de Guardia (IA 24/7):")
                 st.info(uc.get("Respuesta_IA_Preliminar", ""))
                 
-                # Construcción del mailto link pre-rellenado
-                asunto_email = f"[SOCRÁTICO - CONSULTA] {uc.get('Tipo_Consulta')} | {uc.get('Caso_Clinico')} | {uc.get('ID_Estudiante')}"
-                cuerpo_email = (
-                    f"Estimado Instructor Docente / Jefatura de Residencia:\n\n"
-                    f"Me comunico desde el Simulador Socrático del Hospital Heller para elevar la siguiente consulta:\n\n"
-                    f"• Residente: {uc.get('ID_Estudiante')}\n"
-                    f"• Caso Clínico: {uc.get('Caso_Clinico')}\n"
-                    f"• Tipo de Consulta: {uc.get('Tipo_Consulta')}\n"
-                    f"• Fecha/Hora: {uc.get('Fecha_UTC')} UTC\n\n"
-                    f"--------------------\n"
-                    f"DETALLE DE LA CONSULTA:\n"
-                    f"{uc.get('Consulta_Texto')}\n"
-                    f"--------------------\n\n"
-                    f"Agradezco su retroalimentación en el próximo ateneo clínico.\n"
-                    f"Saludos cordiales."
-                )
-                mailto_link = f"mailto:{DEFAULT_DOCENTE_EMAIL}?subject={urllib.parse.quote(asunto_email)}&body={urllib.parse.quote(cuerpo_email)}"
-                
-                st.markdown(f"""
-                    <div style="margin-top: 12px; padding: 12px 16px; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
-                        <span style="font-weight: 700; color: #1e40af;">✉️ Enviar esta consulta directamente al correo del docente:</span><br>
-                        <span style="font-size: 0.85rem; color: #475569;">Al hacer clic, se abrirá tu aplicación de correo (Gmail, Outlook, Mail) con el asunto y el mensaje ya redactados y dirigidos a <code>{DEFAULT_DOCENTE_EMAIL}</code>.</span><br><br>
-                        <a href="{mailto_link}" target="_blank" style="background-color: #2563eb; color: white; padding: 8px 18px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.88rem; display: inline-block;">
-                            ✉️ Abrir en mi Correo con 1 Clic &rarr;
-                        </a>
-                    </div>
-                """, unsafe_allow_html=True)
+                mail_status = st.session_state.get("ultima_consulta_mail_status", (False, ""))
+                ok_m, msg_m = mail_status
+                if ok_m:
+                    st.markdown(f"""
+                        <div style="margin-top: 12px; padding: 14px 18px; background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 8px;">
+                            <span style="font-weight: 700; color: #166534;">📧 Notificación Automática Enviada con Éxito:</span><br>
+                            <span style="font-size: 0.88rem; color: #15803d;">
+                                Se ha despachado un correo electrónico directamente a la bandeja de <code>{DEFAULT_DOCENTE_EMAIL}</code> con todos los datos del paciente y tu consulta.
+                            </span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    # Construcción del mailto link pre-rellenado como respaldo
+                    asunto_email = f"[SOCRÁTICO - CONSULTA] {uc.get('Tipo_Consulta')} | {uc.get('Caso_Clinico')} | {uc.get('ID_Estudiante')}"
+                    cuerpo_email = (
+                        f"Estimado Instructor Docente / Jefatura de Residencia:\n\n"
+                        f"Me comunico desde el Simulador Socrático del Hospital Heller para elevar la siguiente consulta:\n\n"
+                        f"• Residente: {uc.get('ID_Estudiante')}\n"
+                        f"• Caso Clínico: {uc.get('Caso_Clinico')}\n"
+                        f"• Tipo de Consulta: {uc.get('Tipo_Consulta')}\n"
+                        f"• Fecha/Hora: {uc.get('Fecha_UTC')} UTC\n\n"
+                        f"--------------------\n"
+                        f"DETALLE DE LA CONSULTA:\n"
+                        f"{uc.get('Consulta_Texto')}\n"
+                        f"--------------------\n\n"
+                        f"Agradezco su retroalimentación en el próximo ateneo clínico.\n"
+                        f"Saludos cordiales."
+                    )
+                    mailto_link = f"mailto:{DEFAULT_DOCENTE_EMAIL}?subject={urllib.parse.quote(asunto_email)}&body={urllib.parse.quote(cuerpo_email)}"
+                    
+                    st.markdown(f"""
+                        <div style="margin-top: 12px; padding: 12px 16px; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;">
+                            <span style="font-weight: 700; color: #1e40af;">✉️ Enviar copia adicional por correo al docente:</span><br>
+                            <span style="font-size: 0.85rem; color: #475569;">Tu consulta ya quedó archivada en la plataforma. Si deseas abrir tu aplicación de correo para enviar una copia directa a <code>{DEFAULT_DOCENTE_EMAIL}</code>, presiona el botón:</span><br><br>
+                            <a href="{mailto_link}" target="_blank" style="background-color: #2563eb; color: white; padding: 8px 18px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.88rem; display: inline-block;">
+                                ✉️ Abrir en mi Correo con 1 Clic &rarr;
+                            </a>
+                        </div>
+                    """, unsafe_allow_html=True)
 
     # Manejo de Solicitud de Evaluación Docente al Cierre
     if st.session_state.get("solicitar_evaluacion", False):
@@ -9036,6 +9203,56 @@ with tab_metricas:
         st.markdown("### 📬 Buzón y Auditoría de Consultas, Dudas y Sugerencias de Residentes")
         st.caption("Consultas clínicas enviadas por los residentes durante las simulaciones, con orientación previa del Tutor IA y espacio para dictamen docente final.")
         
+        # Configuración y Estado del Despacho SMTP
+        with st.expander("⚙️ Estado de Configuración del Envío de Correos Automático (SMTP Gmail)", expanded=False):
+            rem_smtp, pwd_smtp = obtener_credenciales_smtp()
+            if pwd_smtp:
+                st.success(f"🟢 **Servicio SMTP Activo:** Las consultas de los residentes se despachan automáticamente a `{DEFAULT_DOCENTE_EMAIL}`.")
+            else:
+                st.warning(f"🟡 **Servicio SMTP Pendiente:** Las consultas se guardan en la tabla inferior pero no se envían a tu casilla de Gmail hasta configurar la contraseña de aplicación de Google.")
+                st.markdown(f"""
+                **¿Cómo activar el envío automático a `{DEFAULT_DOCENTE_EMAIL}` en 1 minuto?**
+                1. Entra a [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) con tu cuenta de Google `{DEFAULT_DOCENTE_EMAIL}`.
+                2. Escribe como nombre *"Socratico Heller"* y haz clic en **Crear**.
+                3. Google te dará una clave de 16 letras (ejemplo: `abcd efgh ijkl mnop`).
+                4. En tu espacio de Hugging Face ve a **Settings ➔ Variables and secrets ➔ New secret**:
+                   - **Name:** `GMAIL_APP_PASSWORD`
+                   - **Value:** las 16 letras (con o sin espacios).
+                """)
+            
+            st.markdown("##### 🧪 Probar o Activar Conexión SMTP en esta Sesión:")
+            col_smtp1, col_smtp2 = st.columns([2, 1])
+            with col_smtp1:
+                pwd_manual = st.text_input(
+                    "Contraseña de Aplicación de Gmail (16 letras):",
+                    type="password",
+                    value=st.session_state.get("cfg_gmail_app_pwd", ""),
+                    placeholder="ej. abcd efgh ijkl mnop",
+                    key="input_smtp_pwd_live"
+                )
+                if pwd_manual:
+                    st.session_state["cfg_gmail_app_pwd"] = pwd_manual.strip()
+            with col_smtp2:
+                st.write("")
+                st.write("")
+                if st.button("📨 Enviar Correo de Prueba", key="btn_test_smtp_live", use_container_width=True):
+                    with st.spinner("Conectando con smtp.gmail.com:587..."):
+                        t_now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                        ok_test, msg_test = enviar_email_consulta_docente(
+                            alumno_id="INSPECTOR-DOCENTE",
+                            caso_clinico="Verificación de Conectividad SMTP",
+                            tipo_consulta="Prueba de Sistema",
+                            texto_consulta="Este es un correo de prueba emitido desde el Panel de Gobernanza del Hospital Dr. Horacio Heller.",
+                            orientacion_ia="El servidor SMTP de Gmail está enlazado correctamente y operativo al 100%.",
+                            email_residente="docente@hospitalheller.gob.ar",
+                            fecha_utc=t_now,
+                            destinatario=DEFAULT_DOCENTE_EMAIL
+                        )
+                        if ok_test:
+                            st.success(f"✅ ¡Prueba exitosa! Correo enviado a {DEFAULT_DOCENTE_EMAIL}. Revisa tu bandeja de entrada.")
+                        else:
+                            st.error(f"❌ {msg_test}")
+        
         if not df_feedback.empty:
             total_c = len(df_feedback)
             pendientes_c = len(df_feedback[df_feedback["Estado"] != "Respondida por Docente"]) if "Estado" in df_feedback.columns else 0
@@ -9134,6 +9351,24 @@ with tab_metricas:
                 )
         else:
             st.info("Aún no se han registrado consultas o sugerencias en el buzón. Aparecerán aquí cuando los residentes envíen dudas desde el simulador.")
+
+        # Supervisión de Sesiones Activas en Guardia (Solo Docente)
+        st.markdown("---")
+        st.markdown("### 👥 Supervisión de Casos en Curso & Standby de la Cohorte")
+        st.caption("Panel exclusivo para instructores. Permite monitorear qué residentes tienen casos en pausa o en curso en la guardia sin exponerlos públicamente entre alumnos.")
+        sesiones_cohortes = listar_sesiones_activas()
+        if sesiones_cohortes:
+            df_ses_cohorte = pd.DataFrame(sesiones_cohortes)
+            st.dataframe(df_ses_cohorte, use_container_width=True, hide_index=True)
+            col_purg1, _ = st.columns([1.5, 3])
+            with col_purg1:
+                if st.button("🧹 Limpiar Todas las Sesiones en Standby", key="btn_limpiar_todas_sesiones", help="Elimina los casos pausados acumulados en el servidor."):
+                    with open(SESIONES_ACTIVAS_FILE, "w", encoding="utf-8") as f_cl:
+                        json.dump({}, f_cl)
+                    st.success("Sesiones depuradas del servidor.")
+                    st.rerun()
+        else:
+            st.info("No hay residentes con casos activos o pausados en el servidor en este momento.")
 
         # =============================================================
         # MEMORIA DINÁMICA DE ATENEOS & DOCTRINA DEL SERVICIO (HOSPITAL DR. HORACIO HELLER)
