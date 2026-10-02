@@ -4519,15 +4519,21 @@ import uuid
 
 def generar_pseudonimo_estudiante(clave_semilla: str = None) -> str:
     """
-    Genera un identificador seudónimo anónimo único por usuario o sesión.
-    Si se provee una clave_semilla específica, genera un hash determinista;
+    Genera un identificador seudónimo único por usuario o sesión.
+    Si se provee un nombre o alias (clave_semilla), normaliza en un identificador legible y estable (ej: ALUMNO-DR-MARTINEZ);
     si es None o vacía, genera un identificador aleatorio criptográficamente seguro único por usuario.
     """
     if clave_semilla and str(clave_semilla).strip():
-        h = hashlib.sha256(str(clave_semilla).encode('utf-8')).hexdigest()[:8]
+        limpia = str(clave_semilla).strip().upper()
+        limpia = re.sub(r'^ALUMNO[-_\s]*', '', limpia)
+        slug = re.sub(r'[^A-Z0-9]+', '-', limpia).strip('-')
+        if not slug:
+            h = hashlib.sha256(str(clave_semilla).encode('utf-8')).hexdigest()[:6].upper()
+            return f"ALUMNO-{h}"
+        return f"ALUMNO-{slug[:24]}"
     else:
-        h = uuid.uuid4().hex[:8]
-    return f"ALUMNO-{h.upper()}"
+        h = uuid.uuid4().hex[:6].upper()
+        return f"ALUMNO-{h}"
 
 
 def estructurar_evento_auditoria(
@@ -4840,7 +4846,7 @@ def guardar_caso_personalizado(clave_caso: str, caso_dict: Dict[str, Any]) -> Tu
     try:
         casos_actuales = leer_casos_personalizados()
         casos_actuales[clave_caso] = caso_dict
-        CUSTOM_CASES_FILE.write_text(json.dumps(casos_actuales, ensure_ascii=False, indent=2), encoding="utf-8")
+        CUSTOM_CASES_FILE.write_text(json.dumps(casos_actuales, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
         return True, f"El caso '{clave_caso}' fue guardado exitosamente en el banco persistente de casos clínicos."
     except Exception as e:
         return False, f"Error al guardar el caso clínico: {str(e)}"
@@ -5642,7 +5648,7 @@ def guardar_sesion_activa(alumno_id: str, estado: Dict[str, Any]) -> Tuple[bool,
 
         datos[alumno_id] = estado_con_meta
         with open(SESIONES_ACTIVAS_FILE, "w", encoding="utf-8") as f:
-            json.dump(datos, f, indent=2, ensure_ascii=False)
+            json.dump(datos, f, indent=2, ensure_ascii=False, default=str)
         return True, "Sesión activa guardada correctamente"
     except Exception as e:
         print(f"[ERROR] guardar_sesion_activa: {e}")
@@ -5704,12 +5710,54 @@ def eliminar_sesion_activa(alumno_id: str) -> Tuple[bool, str]:
         if alumno_id in datos:
             del datos[alumno_id]
             with open(SESIONES_ACTIVAS_FILE, "w", encoding="utf-8") as f:
-                json.dump(datos, f, indent=2, ensure_ascii=False)
+                json.dump(datos, f, indent=2, ensure_ascii=False, default=str)
             return True, f"Sesión de {alumno_id} eliminada"
         return False, f"Sesión de {alumno_id} no encontrada"
     except Exception as e:
         print(f"[ERROR] eliminar_sesion_activa: {e}")
         return False, str(e)
+
+
+def exportar_sesion_json(alumno_id: str, estado: Dict[str, Any]) -> str:
+    """
+    Serializa el estado completo de un caso en una cadena JSON formateada y lista para descargar.
+    Garantiza portabilidad total del progreso clínico del residente entre dispositivos y guardias.
+    """
+    from datetime import datetime
+    paquete = {
+        "version_simulador": "2026.1",
+        "tipo_archivo": "socatico_respaldo_caso_clinico",
+        "fecha_exportacion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "alumno_id": alumno_id,
+        "estado": estado
+    }
+    return json.dumps(paquete, ensure_ascii=False, indent=2, default=str)
+
+
+def validar_y_cargar_sesion_json(contenido_json: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """
+    Valida e interpreta un archivo de respaldo JSON subido por el residente.
+    Retorna (estado_dict, mensaje_exito_o_error).
+    """
+    if not contenido_json or not contenido_json.strip():
+        return None, "El archivo proporcionado está vacío."
+    try:
+        data = json.loads(contenido_json)
+        # Soportar tanto paquete con metadata como dict directo de estado
+        if isinstance(data, dict):
+            if "estado" in data and isinstance(data["estado"], dict):
+                estado = data["estado"]
+            else:
+                estado = data
+            
+            # Validación de campos mínimos de un caso clínico en Socrático
+            if "caso_activo_titulo" not in estado and "caso_activo_nombre" not in estado:
+                return None, "El archivo JSON no parece ser un respaldo válido de Socrático (falta título de caso)."
+            return estado, "Respaldo clínico validado y listo para reanudar."
+        return None, "Formato JSON no compatible (no es un objeto)."
+    except Exception as e:
+        return None, f"Error al decodificar JSON: {str(e)}"
+
 
 
 
@@ -6902,15 +6950,18 @@ except Exception:
 # Inicialización de almacenamiento resiliente de sesiones en guardia
 inicializar_almacenamiento_sesiones()
 
-# Sincronización bidireccional de seudónimo del alumno con parámetros de URL (?alumno=...)
+# Sincronización de identidad del residente / alumno
 url_alumno = st.query_params.get("alumno")
+if "alumno_alias" not in st.session_state:
+    st.session_state.alumno_alias = str(url_alumno).strip() if (url_alumno and str(url_alumno).strip()) else ""
+
 if "alumno_id" not in st.session_state:
-    if url_alumno and str(url_alumno).strip():
-        st.session_state.alumno_id = str(url_alumno).strip()
+    if st.session_state.alumno_alias:
+        st.session_state.alumno_id = generar_pseudonimo_estudiante(st.session_state.alumno_alias)
     else:
         # Generar un identificador único por usuario/sesión
         st.session_state.alumno_id = generar_pseudonimo_estudiante()
-        st.query_params["alumno"] = st.session_state.alumno_id
+    st.query_params["alumno"] = st.session_state.alumno_id
 elif "alumno" not in st.query_params:
     st.query_params["alumno"] = st.session_state.alumno_id
 
@@ -6976,16 +7027,19 @@ def restaurar_sesion_guardada(sesion_dict):
     st.session_state.evaluacion_activa = sesion_dict.get("evaluacion_activa", None)
     st.session_state.estado_escalamiento = sesion_dict.get("estado_escalamiento") or inicializar_estado_escalamiento(st.session_state.caso_activo_meta, st.session_state.caso_activo_titulo)
     st.session_state.estado_recursos = sesion_dict.get("estado_recursos") or inicializar_estado_recursos()
-    st.session_state.caso_en_standby = sesion_dict.get("en_standby", False)
+    # Despausa automática para permitir interacción directa e inmediata
+    st.session_state.caso_en_standby = False
     st.session_state.borrador_respuesta = sesion_dict.get("borrador_respuesta", "")
     st.session_state.sesion_pendiente_recuperar = None
     st.session_state.sesion_recuperada_o_descartada = True
+    # Actualizar en almacenamiento para registrar la reanudación
+    autoguardar_sesion_actual(forzar=True, en_standby=False)
 
 def autoguardar_sesion_actual(forzar=False, en_standby=False):
     """Guarda automáticamente el estado actual en el disco si hay avances clínicos."""
     mensajes = st.session_state.get("mensajes", [])
     borrador = st.session_state.get("borrador_respuesta", "")
-    if forzar or len(mensajes) > 1 or bool(borrador.strip()):
+    if forzar or len(mensajes) > 1 or bool(borrador.strip()) or en_standby:
         estado_a_guardar = {
             "caso_activo_nombre": st.session_state.get("caso_activo_nombre"),
             "caso_activo_titulo": st.session_state.get("caso_activo_titulo"),
@@ -6999,6 +7053,7 @@ def autoguardar_sesion_actual(forzar=False, en_standby=False):
             "en_standby": en_standby or st.session_state.get("caso_en_standby", False)
         }
         guardar_sesion_activa(st.session_state.alumno_id, estado_a_guardar)
+
 
 def reiniciar_caso(nombre_caso, titulo, texto, metadata=None):
     st.session_state.caso_activo_nombre = nombre_caso
@@ -7087,30 +7142,44 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    st.markdown("### 👤 Identidad & Gobernanza")
-    col_id1, col_id2 = st.columns([3, 1])
-    with col_id1:
-        alumno_input = st.text_input("ID Alumno (Seudónimo):", value=st.session_state.alumno_id)
-        if alumno_input != st.session_state.alumno_id:
-            st.session_state.alumno_id = alumno_input
-            st.query_params["alumno"] = alumno_input
-            ses_buscada = cargar_sesion_activa(alumno_input)
-            if ses_buscada and (len(ses_buscada.get("mensajes", [])) > 1 or ses_buscada.get("en_standby") or bool(ses_buscada.get("borrador_respuesta", "").strip())):
-                st.session_state.sesion_pendiente_recuperar = ses_buscada
-                st.session_state.sesion_recuperada_o_descartada = False
-            st.rerun()
-    with col_id2:
-        if st.button("🎲", help="Generar nuevo seudónimo anónimo aleatorio"):
+    st.markdown("### 👤 Identidad del Residente / Usuario")
+    
+    alias_input = st.text_input(
+        "Nombre, Apellido o Alias de Guardia:",
+        value=st.session_state.get("alumno_alias", ""),
+        placeholder="Ej: Dr. Martinez / R1 Gomez / Dra. Perez",
+        help="Usa siempre tu mismo nombre o alias para recuperar automáticamente tus casos guardados y avances desde cualquier computadora o celular.",
+        key="input_alias_residente"
+    )
+    if alias_input != st.session_state.get("alumno_alias", ""):
+        st.session_state.alumno_alias = alias_input.strip()
+        if st.session_state.alumno_alias:
+            nuevo_id = generar_pseudonimo_estudiante(st.session_state.alumno_alias)
+        else:
+            nuevo_id = generar_pseudonimo_estudiante()
+        st.session_state.alumno_id = nuevo_id
+        st.query_params["alumno"] = nuevo_id
+        # Verificar si este alias ya tiene una sesión guardada previa en standby
+        ses_buscada = cargar_sesion_activa(nuevo_id)
+        if ses_buscada and (len(ses_buscada.get("mensajes", [])) > 1 or ses_buscada.get("en_standby") or bool(ses_buscada.get("borrador_respuesta", "").strip())):
+            st.session_state.sesion_pendiente_recuperar = ses_buscada
+            st.session_state.sesion_recuperada_o_descartada = False
+        st.rerun()
+
+    col_id_badge, col_id_rand = st.columns([3.2, 1])
+    with col_id_badge:
+        st.caption(f"🛡️ **Código en servidor:** `{st.session_state.alumno_id}`")
+    with col_id_rand:
+        if st.button("🎲", help="Generar nuevo identificador anónimo"):
+            st.session_state.alumno_alias = ""
             st.session_state.alumno_id = generar_pseudonimo_estudiante()
             st.query_params["alumno"] = st.session_state.alumno_id
             st.session_state.sesion_pendiente_recuperar = None
             st.session_state.sesion_recuperada_o_descartada = False
             st.rerun()
-            
-    st.caption("🛡️ Los datos se registran bajo un seudónimo anónimo para auditoría docente sin comprometer PII.")
 
-    # Cajón de Caso Personal en Standby (Privado para cada usuario)
-    with st.expander("📂 Mi Caso Guardado / Standby", expanded=False):
+    # Cajón de Caso Personal en Standby & Respaldo Portátil
+    with st.expander("📂 Mi Caso Guardado & Respaldo Portátil", expanded=False):
         mi_ses = cargar_sesion_activa(st.session_state.alumno_id)
         if mi_ses and (len(mi_ses.get("mensajes", [])) > 1 or mi_ses.get("en_standby") or bool(mi_ses.get("borrador_respuesta", "").strip())):
             st.markdown(f"**Tu caso guardado:**  \n`{mi_ses.get('caso_activo_titulo', 'Caso Clínico')}`")
@@ -7128,7 +7197,76 @@ with st.sidebar:
                     st.session_state.sesion_recuperada_o_descartada = True
                     st.rerun()
         else:
-            st.caption("No tienes ningún caso pausado o en standby para tu usuario.")
+            st.caption("No tienes ningún caso pausado o en standby para tu usuario actual.")
+            
+        st.markdown("---")
+        st.markdown("##### 🔍 Recuperar Caso Anterior")
+        col_rec_in, col_rec_btn = st.columns([2, 1])
+        with col_rec_in:
+            rec_busqueda = st.text_input("Ingresar Alias o Código:", placeholder="Ej: R1 Gomez o ALUMNO-...", key="input_recuperar_manual")
+        with col_rec_btn:
+            st.write("")
+            if st.button("Buscar", key="btn_buscar_sesion_manual", width="stretch"):
+                if rec_busqueda and rec_busqueda.strip():
+                    clave_candidata = generar_pseudonimo_estudiante(rec_busqueda.strip()) if not rec_busqueda.strip().upper().startswith("ALUMNO-") else rec_busqueda.strip().upper()
+                    ses_encontrada = cargar_sesion_activa(clave_candidata)
+                    if not ses_encontrada:
+                        ses_encontrada = cargar_sesion_activa(rec_busqueda.strip())
+                    if ses_encontrada:
+                        st.session_state.alumno_alias = rec_busqueda.strip()
+                        st.session_state.alumno_id = clave_candidata
+                        st.query_params["alumno"] = clave_candidata
+                        restaurar_sesion_guardada(ses_encontrada)
+                        st.success(f"✅ ¡Caso '{ses_encontrada.get('caso_activo_titulo')}' recuperado!")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ No se encontró ningún caso guardado para '{rec_busqueda.strip()}'.")
+                else:
+                    st.warning("Ingrese un alias o código a buscar.")
+
+        st.markdown("---")
+        st.markdown("##### 💾 Respaldo y Restauración Portátil")
+        estado_actual_exportar = {
+            "caso_activo_nombre": st.session_state.get("caso_activo_nombre"),
+            "caso_activo_titulo": st.session_state.get("caso_activo_titulo"),
+            "caso_activo_texto": st.session_state.get("caso_activo_texto"),
+            "caso_activo_meta": st.session_state.get("caso_activo_meta"),
+            "mensajes": st.session_state.get("mensajes", []),
+            "borrador_respuesta": st.session_state.get("borrador_respuesta", ""),
+            "evaluacion_activa": st.session_state.get("evaluacion_activa"),
+            "estado_escalamiento": st.session_state.get("estado_escalamiento"),
+            "estado_recursos": st.session_state.get("estado_recursos"),
+            "en_standby": st.session_state.get("caso_en_standby", False)
+        }
+        json_exportable = exportar_sesion_json(st.session_state.alumno_id, estado_actual_exportar)
+        st.download_button(
+            label="📥 Descargar Respaldo del Caso (.json)",
+            data=json_exportable,
+            file_name=f"socatico_caso_{st.session_state.alumno_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            key="btn_descargar_caso_json",
+            help="Descarga una copia completa de tu caso clínico, signos vitales y discusión para guardarlo en tu dispositivo o reanudarlo en cualquier momento.",
+            width="stretch"
+        )
+        
+        archivo_subido = st.file_uploader(
+            "📤 Restaurar Caso desde Archivo (.json):",
+            type=["json"],
+            key="uploader_caso_json",
+            help="Sube un archivo .json previamente descargado para reanudar el caso de inmediato."
+        )
+        if archivo_subido is not None:
+            try:
+                contenido_str = archivo_subido.read().decode("utf-8")
+                estado_importado, msg_val = validar_y_cargar_sesion_json(contenido_str)
+                if estado_importado:
+                    restaurar_sesion_guardada(estado_importado)
+                    st.success("✅ " + msg_val)
+                    st.rerun()
+                else:
+                    st.error("❌ " + msg_val)
+            except Exception as e_up:
+                st.error(f"❌ Error al procesar el archivo: {str(e_up)}")
 
     st.markdown("---")
     st.markdown("#### 🛡️ Seguridad de Envío")
@@ -7140,18 +7278,22 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### ⚙️ Selección del Escenario")
-    modo_caso = st.radio("Origen del caso:", ["Banco Estándar (Medicina Interna)", "Cargar Caso Personalizado"])
+    modo_caso = st.radio("Origen del caso:", ["Banco Estándar (Medicina Interna)", "Cargar Caso Personalizado"], key="sb_modo_origen_caso")
     
     if modo_caso == "Banco Estándar (Medicina Interna)":
         nombres_casos = obtener_nombres_casos()
-        idx_caso = 0
-        if st.session_state.caso_activo_nombre in nombres_casos:
+        # Si el caso activo es personalizado o restaurado y no está en la lista estándar, mantenerlo como primera opción
+        if st.session_state.caso_activo_nombre not in nombres_casos:
+            nombres_casos = [st.session_state.caso_activo_nombre] + nombres_casos
+            idx_caso = 0
+        else:
             idx_caso = nombres_casos.index(st.session_state.caso_activo_nombre)
-        nombre_sel = st.selectbox("Escenario de práctica:", nombres_casos, index=idx_caso)
+        nombre_sel = st.selectbox("Escenario de práctica:", nombres_casos, index=idx_caso, key="sb_selector_escenario")
         if nombre_sel != st.session_state.caso_activo_nombre:
             info_c = obtener_caso(nombre_sel)
-            reiniciar_caso(nombre_sel, info_c["titulo"], info_c["viñeta"], info_c)
-            st.rerun()
+            if info_c:
+                reiniciar_caso(nombre_sel, info_c.get("titulo", nombre_sel), info_c.get("viñeta", ""), info_c)
+                st.rerun()
     else:
         st.markdown("#### 📝 Carga Rápida de Caso (Práctica)")
         with st.expander("❓ ¿Cómo redactar tu viñeta? (Requisitos)", expanded=False):
@@ -7285,22 +7427,44 @@ with tab_simulador:
     # Barra de Acción Rápida: Standby / Pausa de Guardia
     if st.session_state.get("caso_en_standby", False):
         st.warning(
-            "⏸️ **Caso en Standby (Pausado por Guardia):** Este escenario está resguardado en el servidor. "
+            f"⏸️ **Caso en Standby (Pausado por Guardia):** Este escenario está resguardado bajo el identificador `{st.session_state.alumno_id}`. "
             "Puedes desconectarte para atender urgencias o evaluar pacientes reales. Todo tu progreso se mantiene intacto."
         )
-        col_st1, col_st2 = st.columns([2, 1])
+        col_st1, col_st2, col_st3 = st.columns([1.5, 1.2, 1.3])
         with col_st2:
             if st.button("▶️ Reanudar Discusión Socrática", type="primary", width="stretch", key="btn_despausar_standby"):
                 st.session_state.caso_en_standby = False
                 autoguardar_sesion_actual(forzar=True, en_standby=False)
                 st.rerun()
+        with col_st3:
+            estado_snap_st = {
+                "caso_activo_nombre": st.session_state.get("caso_activo_nombre"),
+                "caso_activo_titulo": st.session_state.get("caso_activo_titulo"),
+                "caso_activo_texto": st.session_state.get("caso_activo_texto"),
+                "caso_activo_meta": st.session_state.get("caso_activo_meta"),
+                "mensajes": st.session_state.get("mensajes", []),
+                "borrador_respuesta": st.session_state.get("borrador_respuesta", ""),
+                "evaluacion_activa": st.session_state.get("evaluacion_activa"),
+                "estado_escalamiento": st.session_state.get("estado_escalamiento"),
+                "estado_recursos": st.session_state.get("estado_recursos"),
+                "en_standby": True
+            }
+            json_standby = exportar_sesion_json(st.session_state.alumno_id, estado_snap_st)
+            st.download_button(
+                label="📥 Respaldo (.json)",
+                data=json_standby,
+                file_name=f"caso_standby_{st.session_state.alumno_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+                mime="application/json",
+                key="btn_descargar_standby_json_banner",
+                width="stretch"
+            )
     else:
         col_vinfo, col_vbtn = st.columns([2.8, 1.2])
         with col_vbtn:
             if st.button("⏸️ Dejar Caso en Standby (Pausa de Guardia)", width="stretch", key="btn_poner_standby", help="Guarda todo el estado (signos vitales, estudios solicitados, tiempo y discusión) para que puedas cerrar la pestaña o atender una urgencia sin perder nada."):
                 st.session_state.caso_en_standby = True
                 autoguardar_sesion_actual(forzar=True, en_standby=True)
-                st.success("💾 ¡Caso guardado en Standby! Puedes salir tranquilamente y volver en cualquier momento.")
+                st.success(f"💾 ¡Caso guardado en Standby para `{st.session_state.alumno_id}`! Puedes salir tranquilamente y volver en cualquier momento.")
                 st.rerun()
     
     # =========================================================
