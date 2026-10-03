@@ -709,7 +709,10 @@ DOCENTE_PASSWORD = "heller2026"
 
 # Modelos oficiales activos requeridos por la API de Google (año 2026)
 AVAILABLE_MODELS = [
-    "gemini-3.6-flash"
+    "gemini-3.6-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash"
 ]
 DEFAULT_MODEL = "gemini-3.6-flash"
 
@@ -6256,7 +6259,13 @@ def procesar_turno_socratico(
         )
         
     modelos_candidatos = [modelo_seleccionado]
-    respaldos_estables = ["gemini-3.6-flash"]
+    respaldos_estables = [
+        "gemini-3.6-flash",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-2.5-pro"
+    ]
     for resp in respaldos_estables:
         if resp not in modelos_candidatos:
             modelos_candidatos.append(resp)
@@ -6264,7 +6273,7 @@ def procesar_turno_socratico(
     ultimo_error = None
     
     for modelo_actual in modelos_candidatos:
-        max_intentos = 3
+        max_intentos = 2
         for intento in range(max_intentos):
             try:
                 chat = client.chats.create(
@@ -6341,8 +6350,8 @@ def procesar_turno_socratico(
                 
                 if modelo_actual != modelo_seleccionado:
                     aviso_fallback = (
-                        f"> ℹ️ *Aviso del Sistema:* El modelo '{modelo_seleccionado}' presentaba picos de demanda momentáneos. "
-                        f"La tutoría fue respondida de forma ininterrumpida por el modelo de respaldo institucional '{modelo_actual}'.\n\n"
+                        f"> ℹ️ *Aviso de Disponibilidad:* El modelo '{modelo_seleccionado}' presentaba sobrecarga en Google (Error 503). "
+                        f"La tutoría socrática fue resuelta de forma ininterrumpida por el modelo de respaldo institucional '{modelo_actual}'.\n\n"
                     )
                     texto_final = aviso_fallback + texto_final
                     
@@ -6355,7 +6364,7 @@ def procesar_turno_socratico(
                 
                 if "429" in err_str or "resource_exhausted" in err_str.lower():
                     wait_sec = _extraer_segundos_espera(e)
-                    wait_sec = max(3.0, min(wait_sec + 1.5, 25.0))
+                    wait_sec = max(3.0, min(wait_sec + 1.5, 20.0))
                     if callback_notificacion:
                         callback_notificacion(
                             "cuota_429",
@@ -6364,35 +6373,50 @@ def procesar_turno_socratico(
                     print(f"[DEBUG GEMINI 429] Esperando {wait_sec:.1f}s antes de reintentar...", flush=True)
                     time.sleep(wait_sec)
                 elif _es_error_transitorio(e):
-                    if callback_notificacion:
-                        callback_notificacion(
-                            "reintento_contingencia",
-                            f"Pico de demanda en {modelo_actual} (Intento {intento+1}/{max_intentos}). Reintentando..."
-                        )
-                    time.sleep(2.0 * (intento + 1))
+                    es_503 = getattr(e, "code", None) == 503 or "503" in err_str or "overloaded" in err_str.lower() or "unavailable" in err_str.lower()
+                    if es_503:
+                        if callback_notificacion:
+                            callback_notificacion(
+                                "reintento_contingencia",
+                                f"Sobrecarga en {modelo_actual} (Error 503). Alternando a modelo de respaldo..."
+                            )
+                        # Pasar rápidamente al siguiente modelo si este está sobrecargado
+                        if intento >= 1 or len(modelos_candidatos) > 1:
+                            print(f"[DEBUG GEMINI 503] {modelo_actual} con sobrecarga. Rotando a modelo alternativo...", flush=True)
+                            break
+                        time.sleep(1.5)
+                    else:
+                        if callback_notificacion:
+                            callback_notificacion(
+                                "reintento_contingencia",
+                                f"Pico de demanda en {modelo_actual} (Intento {intento+1}/{max_intentos}). Reintentando..."
+                            )
+                        time.sleep(2.0 * (intento + 1))
                 else:
-                    print(f"[DEBUG GEMINI] Modelo {modelo_actual} descartado por error permanente ({e}).", flush=True)
+                    print(f"[DEBUG GEMINI] Modelo {modelo_actual} descartado ({e}).", flush=True)
                     break
                     
-    # Última contingencia de resiliencia: Si falló con tools, llamada directa sin function calling
-    try:
-        print("[DEBUG GEMINI] Intentando última contingencia directa sin tools...", flush=True)
-        time.sleep(2.0)
-        cfg_directo = types.GenerateContentConfig(
-            temperature=0.2,
-            system_instruction=system_instruction
-        )
-        chat_directo = client.chats.create(
-            model="gemini-3.6-flash",
-            config=cfg_directo,
-            history=history_contents
-        )
-        resp_directo = chat_directo.send_message(nuevo_mensaje_usuario)
-        if resp_directo.text:
-            aviso_contingencia = "> ℹ️ *Aviso:* Se activó el modo de contingencia docente directa.\n\n"
-            return aviso_contingencia + resp_directo.text, ["Modo contingencia directa (chat socrático)"]
-    except Exception as e_directo:
-        print(f"[DEBUG GEMINI ERROR FINAL] Contingencia directa falló: {e_directo}", flush=True)
+    # Última contingencia de resiliencia: Si falló con tools, llamada directa sin function calling en modelos alternativos
+    contingencias_directas = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.6-flash"]
+    for mod_directo in contingencias_directas:
+        try:
+            print(f"[DEBUG GEMINI] Intentando última contingencia directa con {mod_directo}...", flush=True)
+            cfg_directo = types.GenerateContentConfig(
+                temperature=0.2,
+                system_instruction=system_instruction
+            )
+            chat_directo = client.chats.create(
+                model=mod_directo,
+                config=cfg_directo,
+                history=history_contents
+            )
+            resp_directo = chat_directo.send_message(nuevo_mensaje_usuario)
+            if resp_directo.text:
+                aviso_contingencia = f"> ℹ️ *Aviso del Sistema:* Activado modo de contingencia docente directa (modelo '{mod_directo}').\n\n"
+                return aviso_contingencia + resp_directo.text, [f"Modo contingencia directa ({mod_directo})"]
+        except Exception as e_directo:
+            print(f"[DEBUG GEMINI ERROR FINAL] Contingencia directa con {mod_directo} falló: {e_directo}", flush=True)
+            continue
         
     # Si todos los reintentos fallaron, propagar el error original
     raise ultimo_error or RuntimeError("No fue posible obtener respuesta del modelo.")
@@ -6596,7 +6620,13 @@ Genera comentarios constructivos pero rigurosos con citas a las respuestas del r
 Responde únicamente con el JSON especificado.
 """
 
-    modelos = [modelo_seleccionado, "gemini-3.6-flash"]
+    modelos = [
+        modelo_seleccionado,
+        "gemini-3.6-flash",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash"
+    ]
     modelos_unicos = []
     for mod in modelos:
         if mod not in modelos_unicos:
@@ -8091,20 +8121,48 @@ with tab_simulador:
                     except Exception:
                         pass
                     
+                    # Proteger la integridad del historial de chat: retirar el turno no respondido para evitar roles consecutivos duplicados
+                    if st.session_state.mensajes and st.session_state.mensajes[-1].get("role") == "user":
+                        st.session_state.mensajes.pop()
+                        autoguardar_sesion_actual()
+
                     err_str = str(e)
                     if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
                         st.warning(
                             "⏳ **Límite de solicitudes por minuto alcanzado (Google AI Studio Free Tier):**\n\n"
                             "La API gratuita de Google admite hasta 15 solicitudes por minuto. Al encadenar varias herramientas de auditoría clínica en paralelo (calculadoras, guías y sesgos), la ventana temporal de Google se completó.\n\n"
-                            "👉 **¿Cómo continuar?** Aguarde **15 a 20 segundos** para que Google resetee la ventana temporal y vuelva a presionar **Enter** o enviar su mensaje. El tutor continuará normalmente."
+                            "👉 **¿Cómo continuar?** Aguarde **15 a 20 segundos** para que Google resetee la ventana temporal y haga clic en **'Reintentar Envío'** abajo. Su respuesta está resguardada."
                         )
+                        col_r429_1, _ = st.columns([1, 2])
+                        with col_r429_1:
+                            if st.button("🔄 Reintentar Envío Ahora", key="btn_reintentar_429", type="primary", width="stretch"):
+                                st.session_state.prompt_pendiente = prompt_final
+                                st.rerun()
+                    elif "503" in err_str or "unavailable" in err_str.lower() or "overloaded" in err_str.lower() or "capacity" in err_str.lower():
+                        st.warning(
+                            "⏳ **Sobrecarga Temporal de Servidores de IA (Error 503 - Overloaded):**\n\n"
+                            "Los servidores centrales de Google AI Studio están experimentando una saturación temporal de tráfico en este momento.\n\n"
+                            "🛡️ **Tu respuesta clínica está 100% protegida.** Puedes hacer clic en **'Reintentar Envío'** o alternar a un modelo de alta disponibilidad (ej: `gemini-2.5-flash` o `gemini-2.0-flash`) desde la barra lateral izquierda."
+                        )
+                        col_r503_1, col_r503_2 = st.columns([1, 1.5])
+                        with col_r503_1:
+                            if st.button("🔄 Reintentar Envío Ahora", key="btn_reintentar_503", type="primary", width="stretch"):
+                                st.session_state.prompt_pendiente = prompt_final
+                                st.rerun()
+                        with col_r503_2:
+                            st.caption("💡 *Tip:* Si el pico persiste, cambia el modelo en el menú lateral a `gemini-2.5-flash` o `gemini-2.0-flash`.")
                     elif "404" in err_str and "NOT_FOUND" in err_str:
                         st.error(
-                            "⚠️ **Modelo no disponible (Error 404):** El modelo seleccionado no está disponible en su región o cuenta. "
-                            "Asegúrese de seleccionar `gemini-3.6-flash` en la barra lateral."
+                            "⚠️ **Modelo no disponible (Error 404):** El modelo seleccionado no está habilitado en su cuenta de Google AI Studio. "
+                            "Seleccione `gemini-2.5-flash` o `gemini-3.6-flash` en la barra lateral."
                         )
                     else:
                         st.error(f"⚠️ **Error en la llamada:** {str(e)}")
+                        col_re_gen, _ = st.columns([1, 2])
+                        with col_re_gen:
+                            if st.button("🔄 Reintentar Respuesta", key="btn_reintentar_gen", type="primary", width="stretch"):
+                                st.session_state.prompt_pendiente = prompt_final
+                                st.rerun()
                         with st.expander("🛠️ Ver Detalle Técnico Completo para Diagnóstico", expanded=False):
                             st.code(tb_err, language="python")
 
