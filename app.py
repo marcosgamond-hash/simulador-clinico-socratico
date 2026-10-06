@@ -180,8 +180,34 @@ except Exception:
 # Inicialización de almacenamiento resiliente de sesiones en guardia
 inicializar_almacenamiento_sesiones()
 
+def _get_query_param(key: str, default: Any = None) -> Any:
+    """Obtiene un parámetro de la URL de forma compatible con cualquier versión de Streamlit."""
+    try:
+        if hasattr(st, "query_params"):
+            val = st.query_params.get(key, default)
+            return val if val is not None else default
+        elif hasattr(st, "experimental_get_query_params"):
+            qp = st.experimental_get_query_params()
+            vals = qp.get(key, [])
+            return vals[0] if vals else default
+    except Exception:
+        pass
+    return default
+
+
+def _set_query_param(key: str, value: str):
+    """Establece un parámetro en la URL de forma compatible con cualquier versión de Streamlit."""
+    try:
+        if hasattr(st, "query_params"):
+            st.query_params[key] = value
+        elif hasattr(st, "experimental_set_query_params"):
+            st.experimental_set_query_params(**{key: value})
+    except Exception:
+        pass
+
+
 # Sincronización de identidad del residente / alumno
-url_alumno = st.query_params.get("alumno")
+url_alumno = _get_query_param("alumno")
 if "alumno_alias" not in st.session_state:
     st.session_state.alumno_alias = str(url_alumno).strip() if (url_alumno and str(url_alumno).strip()) else ""
 
@@ -191,9 +217,9 @@ if "alumno_id" not in st.session_state:
     else:
         # Generar un identificador único por usuario/sesión
         st.session_state.alumno_id = generar_pseudonimo_estudiante()
-    st.query_params["alumno"] = st.session_state.alumno_id
-elif "alumno" not in st.query_params:
-    st.query_params["alumno"] = st.session_state.alumno_id
+    _set_query_param("alumno", st.session_state.alumno_id)
+elif not _get_query_param("alumno"):
+    _set_query_param("alumno", st.session_state.alumno_id)
 
 # Inicialización del estado del simulador
 if "caso_activo_nombre" not in st.session_state:
@@ -334,7 +360,7 @@ with st.sidebar:
     if gemini_api_key and gemini_api_key.strip():
         st.session_state.api_key_guardada = gemini_api_key.strip()
         st.caption(f"🟢 Clave ingresada ({len(gemini_api_key.strip())} caracteres)")
-        if st.button("🔍 Probar Clave y Diagnosticar Modelos", width="stretch"):
+        if st.button("🔍 Probar Clave y Diagnosticar Modelos", use_container_width=True):
             with st.spinner("Consultando catálogo de modelos a Google..."):
                 try:
                     from google import genai
@@ -388,7 +414,7 @@ with st.sidebar:
         else:
             nuevo_id = generar_pseudonimo_estudiante()
         st.session_state.alumno_id = nuevo_id
-        st.query_params["alumno"] = nuevo_id
+        _set_query_param("alumno", nuevo_id)
         # Verificar si este alias ya tiene una sesión guardada previa en standby
         ses_buscada = cargar_sesion_activa(nuevo_id)
         if ses_buscada and (len(ses_buscada.get("mensajes", [])) > 1 or ses_buscada.get("en_standby") or bool(ses_buscada.get("borrador_respuesta", "").strip())):
@@ -403,7 +429,7 @@ with st.sidebar:
         if st.button("🎲", help="Generar nuevo identificador anónimo"):
             st.session_state.alumno_alias = ""
             st.session_state.alumno_id = generar_pseudonimo_estudiante()
-            st.query_params["alumno"] = st.session_state.alumno_id
+            _set_query_param("alumno", st.session_state.alumno_id)
             st.session_state.sesion_pendiente_recuperar = None
             st.session_state.sesion_recuperada_o_descartada = False
             st.rerun()
@@ -416,11 +442,11 @@ with st.sidebar:
             st.caption(f"Último avance: {mi_ses.get('ultima_actualizacion', 'Hoy')} ({len(mi_ses.get('mensajes', []))} turnos de discusión)")
             col_sb1, col_sb2 = st.columns(2)
             with col_sb1:
-                if st.button("▶️ Cargar Mi Caso", key="btn_reanudar_propia_sesion", width="stretch"):
+                if st.button("▶️ Cargar Mi Caso", key="btn_reanudar_propia_sesion", use_container_width=True):
                     restaurar_sesion_guardada(mi_ses)
                     st.rerun()
             with col_sb2:
-                if st.button("🗑️ Descartar", key="btn_descartar_propia_sesion", width="stretch"):
+                if st.button("🗑️ Descartar", key="btn_descartar_propia_sesion", use_container_width=True):
                     eliminar_sesion_activa(st.session_state.alumno_id)
                     st.session_state.caso_en_standby = False
                     st.session_state.sesion_pendiente_recuperar = None
@@ -436,7 +462,7 @@ with st.sidebar:
             rec_busqueda = st.text_input("Ingresar Alias o Código:", placeholder="Ej: R1 Gomez o ALUMNO-...", key="input_recuperar_manual")
         with col_rec_btn:
             st.write("")
-            if st.button("Buscar", key="btn_buscar_sesion_manual", width="stretch"):
+            if st.button("Buscar", key="btn_buscar_sesion_manual", use_container_width=True):
                 if rec_busqueda and rec_busqueda.strip():
                     clave_candidata = generar_pseudonimo_estudiante(rec_busqueda.strip()) if not rec_busqueda.strip().upper().startswith("ALUMNO-") else rec_busqueda.strip().upper()
                     ses_encontrada = cargar_sesion_activa(clave_candidata)
@@ -445,7 +471,7 @@ with st.sidebar:
                     if ses_encontrada:
                         st.session_state.alumno_alias = rec_busqueda.strip()
                         st.session_state.alumno_id = clave_candidata
-                        st.query_params["alumno"] = clave_candidata
+                        _set_query_param("alumno", clave_candidata)
                         restaurar_sesion_guardada(ses_encontrada)
                         st.success(f"✅ ¡Caso '{ses_encontrada.get('caso_activo_titulo')}' recuperado!")
                         st.rerun()
@@ -476,7 +502,7 @@ with st.sidebar:
             mime="application/json",
             key="btn_descargar_caso_json",
             help="Descarga una copia completa de tu caso clínico, signos vitales y discusión para guardarlo en tu dispositivo o reanudarlo en cualquier momento.",
-            width="stretch"
+            use_container_width=True
         )
         
         archivo_subido = st.file_uploader(
@@ -554,7 +580,7 @@ with st.sidebar:
         with col_c1:
             aplicar_sanitizacion = st.checkbox("Sanitizar PHI (Recomendado)", value=True)
         with col_c2:
-            if st.button("Cargar Caso", width="stretch"):
+            if st.button("Cargar Caso", use_container_width=True):
                 texto_final = custom_texto
                 if aplicar_sanitizacion:
                     texto_final, redactados = sanitizar_texto_clinico(custom_texto)
@@ -570,8 +596,7 @@ with st.sidebar:
 
     st.markdown("---")
     # Verificación de Modo Docente / Jefatura (Clave Maestra o URL Mágica)
-    query_p = st.query_params
-    token_url = query_p.get("docente", "") or query_p.get("admin", "")
+    token_url = _get_query_param("docente", "") or _get_query_param("admin", "")
     
     with st.expander("🔒 Acceso Docente / Jefatura", expanded=bool(token_url == DOCENTE_PASSWORD)):
         pin_input = st.text_input("Clave Maestra:", type="password", key="clave_docente_sidebar")
@@ -589,7 +614,7 @@ with st.sidebar:
     es_docente = (pin_input == DOCENTE_PASSWORD) or (token_url == DOCENTE_PASSWORD)
 
     st.markdown("---")
-    if st.button("🔄 Reiniciar Conversación del Caso", width="stretch"):
+    if st.button("🔄 Reiniciar Conversación del Caso", use_container_width=True):
         reiniciar_caso(
             st.session_state.caso_activo_nombre,
             st.session_state.caso_activo_titulo,
@@ -633,12 +658,12 @@ with tab_simulador:
         )
         col_rec1, col_rec2 = st.columns([1, 1])
         with col_rec1:
-            if st.button("▶️ Continuar donde lo dejé (Reanudar Caso)", type="primary", width="stretch", key="btn_reanudar_banner"):
+            if st.button("▶️ Continuar donde lo dejé (Reanudar Caso)", type="primary", use_container_width=True, key="btn_reanudar_banner"):
                 restaurar_sesion_guardada(ses_pend)
                 st.success("✅ Caso reanudado con éxito. ¡Continúa tu discusión!")
                 st.rerun()
         with col_rec2:
-            if st.button("🔄 Descartar y Empezar de Cero", width="stretch", key="btn_descartar_banner"):
+            if st.button("🔄 Descartar y Empezar de Cero", use_container_width=True, key="btn_descartar_banner"):
                 eliminar_sesion_activa(st.session_state.alumno_id)
                 st.session_state.sesion_pendiente_recuperar = None
                 st.session_state.sesion_recuperada_o_descartada = True
@@ -662,7 +687,7 @@ with tab_simulador:
         )
         col_st1, col_st2, col_st3 = st.columns([1.5, 1.2, 1.3])
         with col_st2:
-            if st.button("▶️ Reanudar Discusión Socrática", type="primary", width="stretch", key="btn_despausar_standby"):
+            if st.button("▶️ Reanudar Discusión Socrática", type="primary", use_container_width=True, key="btn_despausar_standby"):
                 st.session_state.caso_en_standby = False
                 autoguardar_sesion_actual(forzar=True, en_standby=False)
                 st.rerun()
@@ -686,12 +711,12 @@ with tab_simulador:
                 file_name=f"caso_standby_{st.session_state.alumno_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
                 mime="application/json",
                 key="btn_descargar_standby_json_banner",
-                width="stretch"
+                use_container_width=True
             )
     else:
         col_vinfo, col_vbtn = st.columns([2.8, 1.2])
         with col_vbtn:
-            if st.button("⏸️ Dejar Caso en Standby (Pausa de Guardia)", width="stretch", key="btn_poner_standby", help="Guarda todo el estado (signos vitales, estudios solicitados, tiempo y discusión) para que puedas cerrar la pestaña o atender una urgencia sin perder nada."):
+            if st.button("⏸️ Dejar Caso en Standby (Pausa de Guardia)", use_container_width=True, key="btn_poner_standby", help="Guarda todo el estado (signos vitales, estudios solicitados, tiempo y discusión) para que puedas cerrar la pestaña o atender una urgencia sin perder nada."):
                 st.session_state.caso_en_standby = True
                 autoguardar_sesion_actual(forzar=True, en_standby=True)
                 st.success(f"💾 ¡Caso guardado en Standby para `{st.session_state.alumno_id}`! Puedes salir tranquilamente y volver en cualquier momento.")
@@ -775,23 +800,23 @@ with tab_simulador:
     st.markdown("##### ⚡ Estrategias Metacognitivas, Protocolo SBAR & Cierre Evaluador:")
     col_btn1, col_btn2, col_btn3, col_btn4, col_btn5 = st.columns([1, 1, 1, 1, 1.3])
     with col_btn1:
-        if st.button("⏸️ Pausa Diagnóstica", width="stretch"):
+        if st.button("⏸️ Pausa Diagnóstica", use_container_width=True):
             st.session_state.prompt_pendiente = "Solicito una pausa diagnóstica metacognitiva: ¿Qué datos del caso son los que menos encajan con mi hipótesis principal?"
             st.rerun()
     with col_btn2:
-        if st.button("💀 Pre-Mortem", width="stretch"):
+        if st.button("💀 Pre-Mortem", use_container_width=True):
             st.session_state.prompt_pendiente = "Hagamos un ejercicio Pre-Mortem: Asumamos que el paciente empeora críticamente en 24 horas. ¿Qué complicación o diagnóstico alternativo pasamos por alto?"
             st.rerun()
     with col_btn3:
-        if st.button("🛡️ Peor Escenario", width="stretch"):
+        if st.button("🛡️ Peor Escenario", use_container_width=True):
             st.session_state.prompt_pendiente = "Quiero verificar la regla del peor escenario: ¿Cuál es la entidad más grave y tiempo-dependiente que debo descartar con prioridad absoluta?"
             st.rerun()
     with col_btn4:
-        if st.button("🚩 Pase SBAR", width="stretch"):
+        if st.button("🚩 Pase SBAR", use_container_width=True):
             st.session_state.mostrar_sbar = not st.session_state.get("mostrar_sbar", False)
             st.rerun()
     with col_btn5:
-        if st.button("🏁 Concluir y Evaluar", width="stretch"):
+        if st.button("🏁 Concluir y Evaluar", use_container_width=True):
             st.session_state.solicitar_evaluacion = True
             st.rerun()
 
@@ -1068,7 +1093,7 @@ with tab_simulador:
                     key="btn_descargar_informe_eval"
                 )
             with col_acc2:
-                if st.button("🔄 Comenzar Nuevo Caso", width="stretch", key="btn_nuevo_caso_post_eval"):
+                if st.button("🔄 Comenzar Nuevo Caso", use_container_width=True, key="btn_nuevo_caso_post_eval"):
                     st.session_state.evaluacion_activa = None
                     st.session_state.mensajes = [
                         {
@@ -1183,7 +1208,7 @@ with tab_simulador:
 
             col_b1, col_b2 = st.columns([3, 1])
             with col_b1:
-                if st.button("🚀 Confirmar y Enviar al Comité", type="primary", width="stretch", key="btn_confirmar_envio_socratico"):
+                if st.button("🚀 Confirmar y Enviar al Comité", type="primary", use_container_width=True, key="btn_confirmar_envio_socratico"):
                     if texto_editado and texto_editado.strip():
                         prompt_confirmado = texto_editado.strip()
                         st.session_state.borrador_respuesta = ""
@@ -1191,7 +1216,7 @@ with tab_simulador:
                     else:
                         st.warning("El borrador está vacío. Ingrese su razonamiento clínico.")
             with col_b2:
-                if st.button("🗑️ Descartar", width="stretch", key="btn_descartar_borrador_socr"):
+                if st.button("🗑️ Descartar", use_container_width=True, key="btn_descartar_borrador_socr"):
                     st.session_state.borrador_respuesta = ""
                     autoguardar_sesion_actual()
                     st.rerun()
@@ -1337,7 +1362,7 @@ with tab_simulador:
                         )
                         col_r429_1, _ = st.columns([1, 2])
                         with col_r429_1:
-                            if st.button("🔄 Reintentar Envío Ahora", key="btn_reintentar_429", type="primary", width="stretch"):
+                            if st.button("🔄 Reintentar Envío Ahora", key="btn_reintentar_429", type="primary", use_container_width=True):
                                 st.session_state.prompt_pendiente = prompt_final
                                 st.rerun()
                     elif "503" in err_str or "unavailable" in err_str.lower() or "overloaded" in err_str.lower() or "capacity" in err_str.lower():
@@ -1348,7 +1373,7 @@ with tab_simulador:
                         )
                         col_r503_1, col_r503_2 = st.columns([1, 1.5])
                         with col_r503_1:
-                            if st.button("🔄 Reintentar Envío Ahora", key="btn_reintentar_503", type="primary", width="stretch"):
+                            if st.button("🔄 Reintentar Envío Ahora", key="btn_reintentar_503", type="primary", use_container_width=True):
                                 st.session_state.prompt_pendiente = prompt_final
                                 st.rerun()
                         with col_r503_2:
@@ -1362,7 +1387,7 @@ with tab_simulador:
                         )
                         col_r400_1, col_r400_2 = st.columns([1, 1.5])
                         with col_r400_1:
-                            if st.button("🔄 Reintentar Envío Ahora", key="btn_reintentar_400", type="primary", width="stretch"):
+                            if st.button("🔄 Reintentar Envío Ahora", key="btn_reintentar_400", type="primary", use_container_width=True):
                                 st.session_state.prompt_pendiente = prompt_final
                                 st.rerun()
                         with col_r400_2:
@@ -1376,7 +1401,7 @@ with tab_simulador:
                         st.error(f"⚠️ **Error en la llamada:** {str(e)}")
                         col_re_gen, _ = st.columns([1, 2])
                         with col_re_gen:
-                            if st.button("🔄 Reintentar Respuesta", key="btn_reintentar_gen", type="primary", width="stretch"):
+                            if st.button("🔄 Reintentar Respuesta", key="btn_reintentar_gen", type="primary", use_container_width=True):
                                 st.session_state.prompt_pendiente = prompt_final
                                 st.rerun()
                         with st.expander("🛠️ Ver Detalle Técnico Completo para Diagnóstico", expanded=False):
@@ -1535,7 +1560,7 @@ with tab_deskilling:
                 key=f"ta_contrarazon_{desafio_id_sel}"
             )
             
-            if st.button("🛡️ Emitir Dictamen de Auditoría & Evaluar Agudeza", key=f"btn_evaluar_auditoria_{desafio_id_sel}", width="stretch"):
+            if st.button("🛡️ Emitir Dictamen de Auditoría & Evaluar Agudeza", key=f"btn_evaluar_auditoria_{desafio_id_sel}", use_container_width=True):
                 if not contrarazon_texto.strip():
                     st.warning("Por favor redacta tu contrarazonamiento clínico antes de emitir el dictamen.")
                 else:
@@ -2391,7 +2416,7 @@ with tab_metricas:
     
         col_ref, _ = st.columns([1, 4])
         with col_ref:
-            if st.button("🔄 Actualizar Registros", width="stretch"):
+            if st.button("🔄 Actualizar Registros", use_container_width=True):
                 st.rerun()
 
         df_registros = leer_registros_auditoria(conn_gsheets, url_hoja)
@@ -2738,7 +2763,7 @@ with tab_metricas:
                     )
                     col_btn_resp1, col_btn_resp2 = st.columns([1.2, 1.3])
                     with col_btn_resp1:
-                        if st.button("💾 Guardar Respuesta Docente", key="btn_guardar_resp_doc", width="stretch"):
+                        if st.button("💾 Guardar Respuesta Docente", key="btn_guardar_resp_doc", use_container_width=True):
                             if not resp_doc_input.strip():
                                 st.warning("Por favor redacte una respuesta antes de guardar.")
                             else:
@@ -2749,7 +2774,7 @@ with tab_metricas:
                                 else:
                                     st.error(msg_r)
                     with col_btn_resp2:
-                        if st.button("⭐ Guardar y Promover a Memoria", key="btn_promover_resp_doc", width="stretch", help="Archiva la respuesta y la promueve automáticamente a la memoria dinámica de ateneos del Hospital Heller para que Socrático la cite y enseñe en futuros casos similares."):
+                        if st.button("⭐ Guardar y Promover a Memoria", key="btn_promover_resp_doc", use_container_width=True, help="Archiva la respuesta y la promueve automáticamente a la memoria dinámica de ateneos del Hospital Heller para que Socrático la cite y enseñe en futuros casos similares."):
                             if not resp_doc_input.strip():
                                 st.warning("Por favor redacte una respuesta antes de promover a memoria institucional.")
                             else:
@@ -2914,7 +2939,7 @@ with tab_metricas:
                 key="ta_nuevo_crit_prec"
             )
             
-            if st.button("💾 Incorporar Criterio a la Memoria Permanente de Socrático", key="btn_guardar_nuevo_prec", width="stretch"):
+            if st.button("💾 Incorporar Criterio a la Memoria Permanente de Socrático", key="btn_guardar_nuevo_prec", use_container_width=True):
                 if not nuevo_tema.strip() or not nuevo_crit.strip():
                     st.warning("El tema y el criterio doctrinario son obligatorios.")
                 else:
@@ -3126,9 +3151,9 @@ with tab_estres:
     
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            btn_simular_uno = st.button("🚀 Ejecutar Simulación con este Residente (3 Turnos + Tribunal)", width="stretch", type="primary")
+            btn_simular_uno = st.button("🚀 Ejecutar Simulación con este Residente (3 Turnos + Tribunal)", use_container_width=True, type="primary")
         with col_btn2:
-            btn_benchmark_todos = st.button("🏆 Correr Torneo Comparativo (Los 6 Residentes en Serie)", width="stretch")
+            btn_benchmark_todos = st.button("🏆 Correr Torneo Comparativo (Los 6 Residentes en Serie)", use_container_width=True)
         
         if btn_simular_uno:
             api_k = st.session_state.get("api_key_guardada", "").strip() or gemini_api_key.strip()
