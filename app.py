@@ -8089,7 +8089,8 @@ if modo_nav_actual == '🩺 Guardia Médica (Simulador)':
                 <div class="vignette-text">{st.session_state.caso_activo_texto}</div>
             </div>
         """, unsafe_allow_html=True)
-    
+
+
         # Barra de Acción Rápida: Standby / Pausa de Guardia
         if st.session_state.get("caso_en_standby", False):
             st.warning(
