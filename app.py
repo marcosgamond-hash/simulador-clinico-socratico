@@ -707,14 +707,15 @@ SMTP_PORT = 587
 # Clave maestra de acceso docente / jefatura
 DOCENTE_PASSWORD = "heller2026"
 
-# Modelos oficiales activos requeridos por la API de Google (año 2026)
+# Modelos oficiales activos requeridos por la API de Google
 AVAILABLE_MODELS = [
-    "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
+    "gemini-2.5-flash",
+    "gemini-1.5-pro",
     "gemini-2.5-pro"
 ]
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-2.0-flash"
 
 # Planilla Google Sheets por defecto (se puede sobreescribir vía secrets o sidebar)
 DEFAULT_GSHEETS_URL = "https://docs.google.com/spreadsheets/d/1s-IBpntSc5fBzuiAw8ePOho3DjB6G8N8ubm1JQXmTtU/edit"
