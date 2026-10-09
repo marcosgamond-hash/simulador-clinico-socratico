@@ -707,13 +707,13 @@ SMTP_PORT = 587
 # Clave maestra de acceso docente / jefatura
 DOCENTE_PASSWORD = "heller2026"
 
-# Modelos oficiales activos requeridos por la API de Google
+# Modelos oficiales activos requeridos por la API de Google (2026)
 AVAILABLE_MODELS = [
     "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-2.5-flash",
-    "gemini-1.5-pro",
-    "gemini-2.5-pro"
+    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-2.0-flash-lite-preview-02-05"
 ]
 DEFAULT_MODEL = "gemini-2.0-flash"
 
@@ -6768,6 +6768,45 @@ def _extraer_texto_seguro(response) -> str:
     return "Comité Médico Evaluador: Se registró la propuesta del residente para auditoría formativa. Por favor continúe justificando su razonamiento clínico."
 
 
+def _ejecutar_motor_dialectico_local(mensaje_usuario_final: str, aviso: str = "") -> Tuple[str, List[str]]:
+    """
+    Motor Dialéctico Clínico Local de Contingencia (Hospital Heller).
+    Opera 100% offline y de forma autónoma ante caídas de Google AI Studio,
+    errores de cuota, modelos 404 o claves 401.
+    """
+    m_lower = mensaje_usuario_final.lower()
+    parrafos_resp = []
+    if aviso:
+        parrafos_resp.append(f"> {aviso}\n")
+        
+    if "trombol" in m_lower or "rtpa" in m_lower or "tenecteplase" in m_lower or "alteplase" in m_lower:
+        parrafos_resp.append("⚡ **Tutor Socrático:** Planteas trombolisis de emergencia. Excelente pensamiento tiempo-dependiente.\n\nSin embargo, antes de abrir el fármaco: ¿Has verificado que la TA sea estrictamente < 185/110 mmHg y descartaste hemorragia por TAC de encéfalo sin contraste? ¿Cómo condiciona tu decisión el tiempo de ventana y cuáles son tus contraindicaciones absolutas?")
+    elif "hidrat" in m_lower or "fisiol" in m_lower or "ringer" in m_lower or "carga" in m_lower or "cristaloide" in m_lower:
+        parrafos_resp.append("💧 **Tutor Socrático:** Decides expandir con cristaloides. Frente a la hemodinámica actual del paciente, ¿cuál es tu volumen meta inicial (ej. bolo de 250-500 ml vs 30 ml/kg) y qué signo dinámico de respuesta a volumen (ej. colapsabilidad de vena cava inferior o elevación pasiva de piernas) evaluarás para evitar sobrecarga y edema agudo de pulmón?")
+    elif "ecg" in m_lower or "electro" in m_lower:
+        parrafos_resp.append("📈 **Tutor Socrático:** El ECG de 12 derivaciones es de máxima prioridad diagnóstica.\n\n¿Qué cambios electrocardiográficos específicos (supradesnivel del ST difuso cóncavo vs convexo regional, alternancia eléctrica o infradesnivel de PR) buscarías activamente para orientar tu diagnóstico diferencial?")
+    elif "pocus" in m_lower or "eco" in m_lower or "ultrason" in m_lower or "ecocardiograma" in m_lower:
+        parrafos_resp.append("📟 **Tutor Socrático:** Indicas ecografía POCUS al pie de la cama.\n\nEn foco subxifoideo y eje paraesternal: ¿Qué signos ecográficos buscarías de inmediato para descartar taponamiento cardíaco (colapso diastólico de cavidades derechas), derrame pericárdico o sobrecarga de ventrículo derecho?")
+    elif "tac" in m_lower or "tomograf" in m_lower or "angiotac" in m_lower:
+        parrafos_resp.append("🧠 **Tutor Socrático:** Solicitas tomografía computada de urgencia.\n\nAntes de trasladar al paciente al tomógrafo: ¿El paciente se encuentra hemodinámicamente estable para el traslado? ¿Solicitaste el estudio con o sin contraste y evaluaste la función renal previa?")
+    elif "intub" in m_lower or "iot" in m_lower or "tubo" in m_lower or "via aerea" in m_lower or "vía aérea" in m_lower:
+        parrafos_resp.append("🫁 **Tutor Socrático:** Consideras aseguramiento definitivo de la vía aérea.\n\n¿Cuáles son los criterios de intubación inmediata en este paciente (falla ventilatoria refractaria, Glasgow ≤ 8, o protección de vía aérea)? ¿Qué secuencia de inducción rápida y fármacos seleccionarías para evitar colapso hemodinámico pos-inducción?")
+    elif "noradrenalina" in m_lower or "inotrop" in m_lower or "vasopresor" in m_lower or "dopamina" in m_lower:
+        parrafos_resp.append("💉 **Tutor Socrático:** Decides titular soporte vasopresor.\n\n¿Cuál es tu objetivo de Presión Arterial Media (PAM ≥ 65 mmHg) y por qué vía de infusión lo administrarás mientras evalúas la respuesta al volumen y la perfusión tisular (lactato / relleno capilar)?")
+    elif "troponina" in m_lower or "dimero" in m_lower or "dímero" in m_lower or "laboratorio" in m_lower or "gases" in m_lower:
+        parrafos_resp.append("🧪 **Tutor Socrático:** Solicitas biomarcadores y laboratorio crítico.\n\nMientras aguardas los resultados del laboratorio central: ¿Qué hipótesis clínica descartarías de inmediato si el resultado es negativo y cuál es tu probabilidad pre-test según los scores validados?")
+    elif "pausa" in m_lower or "timeout" in m_lower or "detener" in m_lower:
+        parrafos_resp.append("⏱️ **Pausa Diagnóstica (Diagnostic Timeout):** Excelente detención reflexiva.\n\nRevisemos juntos: ¿Qué dato de la historia clínica o de las constantes vitales basales NO encaja del todo con tu hipótesis diagnóstica principal? ¿Podríamos estar sesgados por anclaje o disponibilidad?")
+    elif "desfibril" in m_lower or "cardiover" in m_lower or "paro" in m_lower or "rcp" in m_lower:
+        parrafos_resp.append("⚡ **Tutor Socrático:** Conducta de resucitación de emergencia.\n\n¿El ritmo detectado en el monitor es desfibrilable (FV / TV sin pulso) o no desfibrilable (AESP / Asistolia)? ¿Cuál es la energía seleccionada y qué causas reversibles (las 5H y 5T) estás tratando en paralelo?")
+    elif "analges" in m_lower or "morfina" in m_lower or "fentanil" in m_lower or "dolor" in m_lower:
+        parrafos_resp.append("💊 **Tutor Socrático:** Manejo analgésico del dolor agudo.\n\nEl alivio del dolor es ético y fisiológico. ¿Qué fármaco y dosis titulas para calmar el sufrimiento sin deprimir la hemodinámica ni enmascarar signos evolutivos de abdomen agudo o shock?")
+    else:
+        parrafos_resp.append(f"👨‍⚕️ **Tutor Socrático:** Has propuesto: *\"{mensaje_usuario_final}\"*.\n\nPara defender esta conducta en el pase de sala de guardia: ¿Cuál es el mecanismo fisiopatológico primario que sustenta tu indicación y qué parámetro clínico de seguridad vigilarás en los próximos 15 minutos?")
+        
+    return "\n\n".join(parrafos_resp), ["Modo contingencia clínica local (Hospital Heller)"]
+
+
 def procesar_turno_socratico(
     api_key: str,
     modelo_seleccionado: str,
@@ -6789,8 +6828,31 @@ def procesar_turno_socratico(
     """
     import sys, traceback
     
-    api_key_limpia = api_key.strip() if api_key else ""
-    client = genai.Client(api_key=api_key_limpia)
+    api_key_limpia = api_key.strip().strip('"').strip("'").replace("GEMINI_API_KEY=", "").strip() if api_key else ""
+    
+    # Sanitización matemática y robusta del historial para garantizar alternancia perfecta user <-> model
+    history_fusionado, mensaje_usuario_final = sanitizar_historial_para_gemini(
+        historial_mensajes, nuevo_mensaje_usuario
+    )
+    
+    # Si no hay clave API ingresada, activar inmediatamente el Motor Dialéctico Local de contingencia
+    if not api_key_limpia:
+        return _ejecutar_motor_dialectico_local(
+            mensaje_usuario_final,
+            aviso="💡 **Modo Simulación Local Activo (Hospital Heller):** No se ingresó clave de Google AI Studio. La simulación continúa normalmente con el motor clínico local. Para habilitar la IA generativa completa, ingrese su API Key gratuita en la barra lateral izquierda."
+        )
+        
+    ultimo_error = None
+    try:
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=api_key_limpia)
+    except Exception as e_client:
+        return _ejecutar_motor_dialectico_local(
+            mensaje_usuario_final,
+            aviso=f"🔑 **Aviso de Conexión:** No fue posible inicializar el cliente de Google GenAI ({str(e_client)[:60]}). Se activó el **Motor Dialéctico Local de Guardia (Hospital Heller)** para continuar la simulación sin interrupciones."
+        )
+
     system_instruction = construir_system_instruction(
         viñeta_texto,
         titulo_caso,
@@ -6807,27 +6869,21 @@ def procesar_turno_socratico(
         tools=[{'function_declarations': herramientas_calculadoras}]
     )
     
-    # Sanitización matemática y robusta del historial para garantizar alternancia perfecta user <-> model
-    history_fusionado, mensaje_usuario_final = sanitizar_historial_para_gemini(
-        historial_mensajes, nuevo_mensaje_usuario
-    )
     history_contents = [
         types.Content(role=m["role"], parts=[types.Part.from_text(text=m["parts"])])
         for m in history_fusionado
     ]
         
-    modelos_candidatos = [modelo_seleccionado] if modelo_seleccionado and modelo_seleccionado != "gemini-3.6-flash" else ["gemini-2.5-flash"]
+    modelos_candidatos = [modelo_seleccionado] if modelo_seleccionado and modelo_seleccionado not in ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.5-pro"] else ["gemini-2.0-flash"]
     respaldos_estables = [
-        "gemini-2.5-flash",
         "gemini-2.0-flash",
         "gemini-1.5-flash",
-        "gemini-2.5-pro"
+        "gemini-3.8-flash",
+        "gemini-3.5-flash"
     ]
     for resp in respaldos_estables:
         if resp not in modelos_candidatos:
             modelos_candidatos.append(resp)
-            
-    ultimo_error = None
     
     for modelo_actual in modelos_candidatos:
         max_intentos = 2
@@ -6961,9 +7017,8 @@ def procesar_turno_socratico(
                 else:
                     print(f"[DEBUG GEMINI] Modelo {modelo_actual} descartado ({e}).", flush=True)
                     break
-                    
     # Capa de Alta Resiliencia: Si falló con tools en todos los modelos, activar contingencia directa
-    contingencias_directas = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    contingencias_directas = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.8-flash"]
     for mod_directo in contingencias_directas:
         try:
             print(f"[DEBUG GEMINI] Intentando contingencia directa con {mod_directo}...", flush=True)
@@ -6983,7 +7038,6 @@ def procesar_turno_socratico(
                 return aviso_contingencia + txt_res, [f"Modo contingencia directa ({mod_directo})"]
         except Exception as e_directo:
             print(f"[DEBUG GEMINI ERROR DIRECTO] Chat multi-turno con {mod_directo} falló: {e_directo}. Intentando generación directa en pase único...", flush=True)
-            # Contingencia absoluta: generación directa sin chats.create (inmune a cualquier error de alternancia 400)
             try:
                 resumen_hist = "\n".join([f"[{m['role'].upper()}]: {m['parts']}" for m in history_fusionado[-6:]])
                 prompt_unificado = (
@@ -7005,8 +7059,19 @@ def procesar_turno_socratico(
                 print(f"[DEBUG GEMINI ERROR SINGLE] Pase único con {mod_directo} falló: {e_single}", flush=True)
                 continue
         
-    # Si todos los reintentos fallaron, propagar el error original
-    raise ultimo_error or RuntimeError("No fue posible obtener respuesta del modelo.")
+    # Si todos los modelos de la API de Google fallaron (401, 404, 503, cuota o red):
+    # Activar la contingencia del Motor Clínico Dialéctico Local del Hospital Heller
+    err_str = str(ultimo_error) if ultimo_error else "Desconexión de API"
+    if "401" in err_str or "unauthenticated" in err_str.lower() or "api key not valid" in err_str.lower():
+        aviso_f = "🔑 **Aviso de Clave API (Error 401):** Google AI Studio no validó la clave ingresada. Verifique en la barra lateral que comience con `AIzaSy...` y no tenga espacios. Mientras tanto, se activó el **Motor Dialéctico Local de Guardia (Hospital Heller)** para continuar su simulación clínica sin interrupciones."
+    elif "404" in err_str and "NOT_FOUND" in err_str:
+        aviso_f = "⚠️ **Aviso de Modelo (Error 404):** El modelo seleccionado no está disponible en su cuenta de Google AI Studio. Se activó el **Motor Dialéctico Local de Guardia (Hospital Heller)** para continuar su simulación clínica sin interrupciones."
+    elif "429" in err_str or "quota" in err_str.lower() or "resource_exhausted" in err_str.lower():
+        aviso_f = "⏳ **Aviso de Cuota (429):** Google AI Studio alcanzó temporalmente el límite de solicitudes por minuto. Se activó el **Motor Dialéctico Local de Guardia (Hospital Heller)** para responder de inmediato."
+    else:
+        aviso_f = f"ℹ️ **Aviso de Disponibilidad:** Conexión con Google AI Studio no disponible ({err_str[:55]}...). Se activó el **Motor Dialéctico Local de Guardia (Hospital Heller)** para continuar la simulación sin interrupción."
+
+    return _ejecutar_motor_dialectico_local(mensaje_usuario_final, aviso=aviso_f)
 
 
 def generar_respuesta_tutor_asincronico(
@@ -7015,7 +7080,7 @@ def generar_respuesta_tutor_asincronico(
     tipo_consulta: str,
     alumno_id: str,
     api_key: str,
-    modelo: str = "gemini-2.5-flash"
+    modelo: str = "gemini-3.8-flash"
 ) -> str:
     """
     Genera una respuesta pedagógica inmediata y de alta calidad técnica para dudas o consultas
@@ -7059,9 +7124,9 @@ Por favor, elabora tu respuesta docente inmediata estructurada en:
         system_instruction=system_prompt
     )
 
-    modelos_a_probar = [modelo, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    modelos_a_probar = [modelo, "gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
     for m in modelos_a_probar:
-        if not m or m == "gemini-3.6-flash":
+        if not m or m in ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.5-pro"]:
             continue
         try:
             resp = client.models.generate_content(
@@ -7212,14 +7277,15 @@ Responde únicamente con el JSON especificado.
 
     modelos = [
         modelo_seleccionado,
-        "gemini-2.5-flash",
+        "gemini-3.8-flash",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
         "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-2.5-pro"
+        "gemini-1.5-flash"
     ]
     modelos_unicos = []
     for mod in modelos:
-        if mod and mod != "gemini-3.6-flash" and mod not in modelos_unicos:
+        if mod and mod not in ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.5-pro"] and mod not in modelos_unicos:
             modelos_unicos.append(mod)
 
     ultimo_error = None
@@ -7310,7 +7376,7 @@ def evaluar_auditoria_ia_residente(
     errores_marcados: List[str],
     texto_contrarazonamiento: str,
     api_key: Optional[str] = None,
-    modelo_nombre: str = "gemini-2.5-flash"
+    modelo_nombre: str = "gemini-3.8-flash"
 ) -> Dict[str, Any]:
     """
     Evalúa formativamente la auditoría clínica realizada por el residente sobre una propuesta de IA novata.
@@ -7363,9 +7429,9 @@ RESPONDE ÚNICAMENTE CON UN OBJETO JSON VÁLIDO CON ESTA ESTRUCTURA EXACTA:
   "perla_auditoria_ia": "Consejo metacognitivo clave para auditar IAs en este tipo de cuadros..."
 }}
 """
-    modelos_audit = [modelo_nombre, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    modelos_audit = [modelo_nombre, "gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
     for mod_a in modelos_audit:
-        if not mod_a or mod_a == "gemini-3.6-flash":
+        if not mod_a or mod_a in ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.5-pro"]:
             continue
         try:
             client = genai.Client(api_key=api_key)
@@ -7774,13 +7840,14 @@ with st.sidebar:
         key="api_key_field"
     )
     if gemini_api_key and gemini_api_key.strip():
-        st.session_state.api_key_guardada = gemini_api_key.strip()
-        st.caption(f"🟢 Clave ingresada ({len(gemini_api_key.strip())} caracteres)")
+        gemini_api_key = gemini_api_key.strip().strip('"').strip("'").replace("GEMINI_API_KEY=", "").strip()
+        st.session_state.api_key_guardada = gemini_api_key
+        st.caption(f"🟢 Clave ingresada ({len(gemini_api_key)} caracteres)")
         if st.button("🔍 Probar Clave y Diagnosticar Modelos", use_container_width=True):
             with st.spinner("Consultando catálogo de modelos a Google..."):
                 try:
                     from google import genai
-                    c_diag = genai.Client(api_key=gemini_api_key.strip())
+                    c_diag = genai.Client(api_key=gemini_api_key)
                     lista_m = []
                     for mod in c_diag.models.list():
                         nombre_limpio = mod.name.replace("models/", "") if mod.name else ""
@@ -7792,10 +7859,12 @@ with st.sidebar:
                         st.warning("⚠️ La clave conectó pero la lista de modelos está vacía.")
                 except Exception as e_diag:
                     st.error(f"❌ Error al consultar modelos con esta clave:\n{str(e_diag)}")
-                    if "404" in str(e_diag) or "not found" in str(e_diag).lower():
-                        st.warning("💡 **Causa del 404:** Esta API Key fue creada en Google Cloud sin habilitar la **'Generative Language API'**, o fue creada en un proyecto con restricciones. Ve a https://aistudio.google.com/apikey y crea una clave nueva allí.")
+                    if "401" in str(e_diag) or "unauthenticated" in str(e_diag).lower() or "api key not valid" in str(e_diag).lower():
+                        st.warning("💡 **Causa del Error 401 (No autorizada):** Google AI Studio rechazó esta clave API. Verifique que no contenga espacios ni caracteres faltantes, o cree una clave nueva y limpia en https://aistudio.google.com/apikey.")
+                    elif "404" in str(e_diag) or "not found" in str(e_diag).lower():
+                        st.warning("💡 **Causa del Error 404:** Esta API Key fue creada en Google Cloud sin habilitar la **'Generative Language API'**, o en un proyecto con restricciones. Ve a https://aistudio.google.com/apikey y crea una clave nueva allí.")
     else:
-        st.caption("🔴 Pegue su clave aquí y presione Enter")
+        st.caption("🔴 Pegue su clave aquí y presione Enter (o use el simulador en modo local sin clave)")
     
     with st.expander("❓ ¿Cómo obtener tu API Key gratuita en 2 min?"):
         st.markdown("""
@@ -8656,7 +8725,8 @@ if modo_nav_actual == '🩺 Guardia Médica (Simulador)':
         prompt_final = prompt_confirmado or st.session_state.pop("prompt_pendiente", None)
     
         if prompt_final:
-            if not gemini_api_key:
+            clave_para_envio = gemini_api_key.strip() if gemini_api_key else ""
+            if False and not clave_para_envio:
                 st.warning("⚠️ Ingrese su **Google AI Studio API Key** en la barra lateral izquierda para enviar consultas al tutor socrático.")
             else:
                 import traceback, sys
@@ -8784,7 +8854,7 @@ if modo_nav_actual == '🩺 Guardia Médica (Simulador)':
                             st.warning(
                                 "⏳ **Sobrecarga Temporal de Servidores de IA (Error 503 - Overloaded):**\n\n"
                                 "Los servidores centrales de Google AI Studio están experimentando una saturación temporal de tráfico en este momento.\n\n"
-                                "🛡️ **Tu respuesta clínica está 100% protegida.** Puedes hacer clic en **'Reintentar Envío'** o alternar a un modelo de alta disponibilidad (ej: `gemini-2.5-flash` o `gemini-2.0-flash`) desde la barra lateral izquierda."
+                                "🛡️ **Tu respuesta clínica está 100% protegida.** Puedes hacer clic en **'Reintentar Envío'** o alternar a un modelo de alta disponibilidad (ej: `gemini-2.0-flash` o `gemini-1.5-flash`) desde la barra lateral izquierda."
                             )
                             col_r503_1, col_r503_2 = st.columns([1, 1.5])
                             with col_r503_1:
@@ -8792,7 +8862,7 @@ if modo_nav_actual == '🩺 Guardia Médica (Simulador)':
                                     st.session_state.prompt_pendiente = prompt_final
                                     st.rerun()
                             with col_r503_2:
-                                st.caption("💡 *Tip:* Si el pico persiste, cambia el modelo en el menú lateral a `gemini-2.5-flash` o `gemini-2.0-flash`.")
+                                st.caption("💡 *Tip:* Si el pico persiste, cambia el modelo en el menú lateral a `gemini-2.0-flash` o `gemini-1.5-flash`.")
                         elif "400" in err_str or "INVALID_ARGUMENT" in err_str or "invalid_argument" in err_str:
                             st.warning(
                                 "🛠️ **Ajuste de Formato de Diálogo (Error 400 - Solicitud Inválida):**\n\n"
@@ -8810,7 +8880,12 @@ if modo_nav_actual == '🩺 Guardia Médica (Simulador)':
                         elif "404" in err_str and "NOT_FOUND" in err_str:
                             st.error(
                                 "⚠️ **Modelo no disponible (Error 404):** El modelo seleccionado no está habilitado en su cuenta de Google AI Studio. "
-                                "Seleccione `gemini-2.5-flash` o `gemini-2.0-flash` en la barra lateral."
+                                "Seleccione `gemini-2.0-flash` o `gemini-1.5-flash` en la barra lateral."
+                            )
+                        elif "401" in err_str or "unauthenticated" in err_str.lower() or "api key not valid" in err_str.lower():
+                            st.error(
+                                "🔑 **Clave API No Autorizada (Error 401):** Google AI Studio no validó la clave ingresada. "
+                                "Verifique que la clave comience con `AIzaSy...` y no tenga espacios. Obtenga una clave gratuita en: https://aistudio.google.com/apikey"
                             )
                         else:
                             st.error(f"⚠️ **Error en la llamada:** {str(e)}")
