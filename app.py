@@ -518,10 +518,10 @@ graph TD
 * **Identificador / Clave Única:** Prefijo de caso y síntoma guía. Formato: `Caso XX: [Hallazgo cardinal] en [Edad/Género]`.
 * **Título Descriptivo:** Síntesis orientada al problema (ej. *Mujer de 58 años con cefalea súbita de inicio ictal y fotofobia*).
 * **Unidad Curricular:** Asignar a una de las 4 unidades de la residencia:
-  - *Unidad 1:* Urgencias Cardiovasculares y Reanimación.
-  - *Unidad 2:* Emergencias Respiratorias y Medio Interno.
-  - *Unidad 3:* Paciente Crítico, Sepsis y Falla Multiorgánica.
-  - *Unidad 4:* Desafíos Diagnósticos Complejos y Casos Interdisciplinarios.
+  - *Unidad 1:* Síndromes Cardiotorácicos & Urgencias Hemodinámicas.
+  - *Unidad 2:* Neuro-Urgencias & Cuidados Críticos Tiempo-Dependientes.
+  - *Unidad 3:* Falla Respiratoria, Medio Interno & Sepsis.
+  - *Unidad 4:* Abdomen Agudo Médico & Descompensación de Patologías Crónicas.
 * **Área / Subespecialidad:** Cardiología, Neumonología, Infectología, Nefrología, Neurología, Hematología, Gastroenterología, Toxicología, Endocrinología o Medicina Interna General.
 * **Nivel de Dificultad:** Inicial (R1), Intermedia (R2), Avanzada (R3/R4).
 
@@ -1056,8 +1056,8 @@ BANCO_CASOS: Dict[str, Dict[str, Any]] = {
         ],
         "calculadoras_pertinentes": ["calculadora_filtrado_glomerular_ckd_epi", "calculadora_metabolica_cad"],
         "guia_oficial_titulo": "Consenso Europeo: Diagnóstico y Manejo de la Hiponatremia",
-        "guia_oficial_sociedad": "ESE / ERA-EDTA (Eur J Endocrinol)",
-        "guia_oficial_url": "https://academic.oup.com/ndt/article/29/suppl_2/i1/1816353"
+        "guia_oficial_sociedad": "ESE / ERA-EDTA (Eur J Endocrinol / NDT)",
+        "guia_oficial_url": "https://doi.org/10.1093/ndt/gfu040"
     },
 
     "Caso 03: Neumonía severa con hipoxemia en mujer diabética de 65 años": {
@@ -2482,10 +2482,10 @@ GUIAS_TEMATICAS: Dict[str, Dict[str, Any]] = {
             {
                 "titulo": "Clinical Practice Guideline on Diagnosis and Treatment of Hyponatraemia",
                 "sociedad": "ESE / ERA-EDTA / ESICM",
-                "revista": "European Journal of Endocrinology",
+                "revista": "European Journal of Endocrinology / NDT",
                 "año": "2014",
                 "nivel": "GRADE (Recomendación Fuerte)",
-                "url": "https://academic.oup.com/ndt/article/29/suppl_2/i1/1816353",
+                "url": "https://doi.org/10.1093/ndt/gfu040",
                 "descripcion": "Abordaje diagnóstico algorítmico y corrección hidroelectrolítica segura para evitar mielinólisis pontina."
             },
             {
@@ -11116,10 +11116,10 @@ elif modo_nav_actual == '🔐 Gestión Docente & Jefatura':
                         nueva_unidad = st.selectbox(
                             "Unidad Curricular:",
                             options=[
-                                "Unidad 1: Urgencias Cardiovasculares y Reanimación",
-                                "Unidad 2: Emergencias Respiratorias y Medio Interno",
-                                "Unidad 3: Paciente Crítico, Sepsis y Falla Multiorgánica",
-                                "Unidad 4: Desafíos Diagnósticos Complejos y Casos Interdisciplinarios",
+                                "Unidad 1: Síndromes Cardiotorácicos & Urgencias Hemodinámicas",
+                                "Unidad 2: Neuro-Urgencias & Cuidados Críticos Tiempo-Dependientes",
+                                "Unidad 3: Falla Respiratoria, Medio Interno & Sepsis",
+                                "Unidad 4: Abdomen Agudo Médico & Descompensación de Patologías Crónicas",
                                 "Módulo Especial: Casos de Ateneo Hospitalario"
                             ],
                             index=3,
