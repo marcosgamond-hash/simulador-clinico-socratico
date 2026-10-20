@@ -1215,9 +1215,9 @@ BANCO_CASOS: Dict[str, Dict[str, Any]] = {
             "Evitar descensos bruscos de presión arterial salvo que supere 185/110 mmHg previo a trombolisis."
         ],
         "calculadoras_pertinentes": ["calculadora_ckd_epi"],
-        "guia_oficial_titulo": "Guía AHA/ASA: Manejo Temprano del ACV Isquémico Agudo",
+        "guia_oficial_titulo": "Guía AHA/ASA 2026: Manejo Temprano del ACV Isquémico Agudo",
         "guia_oficial_sociedad": "AHA / ASA (Stroke)",
-        "guia_oficial_url": "https://www.ahajournals.org/doi/10.1161/STR.0000000000000211"
+        "guia_oficial_url": "https://doi.org/10.1161/STR.0000000000000513"
     },
 
     "Caso 09: Injuria Renal Aguda e hiperpotasemia severa por 'Triple Whammy'": {
@@ -2464,20 +2464,20 @@ GUIAS_TEMATICAS: Dict[str, Dict[str, Any]] = {
             "Identificar las banderas rojas en cefalea (SNOOP) que obligan a neuroimagen urgente."
         ],
         "bibliografia_basal": [
-            "Guías AHA/ASA para el Manejo Temprano del ACV Isquémico Agudo (Stroke).",
-            "Consenso Europeo de Diagnóstico y Tratamiento de la Hiponatremia (Eur J Endocrinol).",
+            "Guías AHA/ASA para el Manejo Temprano del ACV Isquémico Agudo (Actualización 2026, Stroke).",
+            "Consenso Europeo de Diagnóstico y Tratamiento de la Hiponatremia (Eur J Endocrinol / NDT).",
             "Guías ESCMID sobre Diagnóstico y Manejo de la Meningitis Bacteriana Aguda.",
             "Guías AHA/ASA sobre Manejo de la Hemorragia Intracerebral Espontánea."
         ],
         "guias_oficiales": [
             {
-                "titulo": "Guidelines for the Early Management of Patients With Acute Ischemic Stroke: 2019 Update",
+                "titulo": "2026 Guideline for the Early Management of Patients With Acute Ischemic Stroke (AHA/ASA)",
                 "sociedad": "AHA / ASA",
                 "revista": "Stroke",
-                "año": "2019",
+                "año": "2026",
                 "nivel": "Clase I (Nivel A)",
-                "url": "https://www.ahajournals.org/doi/10.1161/STR.0000000000000211",
-                "descripcion": "Protocolo Código ACV: ventana de 4.5h para trombolisis endovenosa (rtPA/TNK), trombectomía mecánica y metas de TA."
+                "url": "https://doi.org/10.1161/STR.0000000000000513",
+                "descripcion": "Protocolo Código ACV: ventana de 4.5h para trombolisis endovenosa (Alteplase / Tenecteplase Clase 1), trombectomía mecánica y metas de TA."
             },
             {
                 "titulo": "Clinical Practice Guideline on Diagnosis and Treatment of Hyponatraemia",
