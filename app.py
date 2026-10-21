@@ -1055,9 +1055,9 @@ BANCO_CASOS: Dict[str, Dict[str, Any]] = {
             "Evitar corrección ultra-rápida de sodio (riesgo de síndrome de desmielinización osmótica / mielinólisis pontina)."
         ],
         "calculadoras_pertinentes": ["calculadora_filtrado_glomerular_ckd_epi", "calculadora_metabolica_cad"],
-        "guia_oficial_titulo": "Consenso Europeo: Diagnóstico y Manejo de la Hiponatremia",
-        "guia_oficial_sociedad": "ESE / ERA-EDTA (Eur J Endocrinol / NDT)",
-        "guia_oficial_url": "https://doi.org/10.1093/ndt/gfu040"
+        "guia_oficial_titulo": "Guía de práctica clínica sobre el diagnóstico y tratamiento de la hiponatremia",
+        "guia_oficial_sociedad": "Sociedad Española de Nefrología (S.E.N. / Nefrología)",
+        "guia_oficial_url": "https://www.revistanefrologia.com/es-pdf-S0211699517300942"
     },
 
     "Caso 03: Neumonía severa con hipoxemia en mujer diabética de 65 años": {
@@ -2465,7 +2465,7 @@ GUIAS_TEMATICAS: Dict[str, Dict[str, Any]] = {
         ],
         "bibliografia_basal": [
             "Guías AHA/ASA para el Manejo Temprano del ACV Isquémico Agudo (Actualización 2026, Stroke).",
-            "Consenso Europeo de Diagnóstico y Tratamiento de la Hiponatremia (Eur J Endocrinol / NDT).",
+            "Guía de Práctica Clínica sobre el Diagnóstico y Tratamiento de la Hiponatremia (S.E.N. / Nefrología).",
             "Guías ESCMID sobre Diagnóstico y Manejo de la Meningitis Bacteriana Aguda.",
             "Guías AHA/ASA sobre Manejo de la Hemorragia Intracerebral Espontánea."
         ],
@@ -2480,13 +2480,13 @@ GUIAS_TEMATICAS: Dict[str, Dict[str, Any]] = {
                 "descripcion": "Protocolo Código ACV: ventana de 4.5h para trombolisis endovenosa (Alteplase / Tenecteplase Clase 1), trombectomía mecánica y metas de TA."
             },
             {
-                "titulo": "Clinical Practice Guideline on Diagnosis and Treatment of Hyponatraemia",
-                "sociedad": "ESE / ERA-EDTA / ESICM",
-                "revista": "European Journal of Endocrinology / NDT",
-                "año": "2014",
+                "titulo": "Guía de práctica clínica sobre el diagnóstico y tratamiento de la hiponatremia",
+                "sociedad": "Sociedad Española de Nefrología (S.E.N.) / ERA-EDTA",
+                "revista": "Nefrología (Open Access PDF)",
+                "año": "2017",
                 "nivel": "GRADE (Recomendación Fuerte)",
-                "url": "https://doi.org/10.1093/ndt/gfu040",
-                "descripcion": "Abordaje diagnóstico algorítmico y corrección hidroelectrolítica segura para evitar mielinólisis pontina."
+                "url": "https://www.revistanefrologia.com/es-pdf-S0211699517300942",
+                "descripcion": "Guía oficial completa en español (PDF directo). Abordaje diagnóstico algorítmico, solución salina al 3% y límites de corrección para evitar mielinólisis pontina."
             },
             {
                 "titulo": "ESCMID Guideline on Diagnosis and Treatment of Acute Bacterial Meningitis",
