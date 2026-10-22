@@ -711,9 +711,8 @@ DOCENTE_PASSWORD = "heller2026"
 AVAILABLE_MODELS = [
     "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-3.8-flash",
-    "gemini-3.5-flash",
-    "gemini-2.0-flash-lite-preview-02-05"
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-pro"
 ]
 DEFAULT_MODEL = "gemini-2.0-flash"
 
@@ -6172,6 +6171,136 @@ def eliminar_sesion_activa(alumno_id: str) -> Tuple[bool, str]:
     return True, f"Sesión de {alumno_id} finalizada."
 
 
+def render_supervision_sesiones_activas_supabase():
+    """Renderiza el panel principal de supervisión de casos en curso y auditoría de diálogos en tiempo real."""
+    st.markdown("### 💬 Supervisión de Casos en Curso & Diálogos en Vivo")
+    st.caption("Conectado directamente a **Supabase Cloud (PostgreSQL)**. Permite auditar en tiempo real la interacción socrática, las respuestas textuales y el razonamiento clínico de cada residente.")
+
+    col_r1, col_r2 = st.columns([3, 1])
+    with col_r2:
+        if st.button("🔄 Actualizar Diálogos en Vivo", key="btn_refresh_sesiones_activas_main", use_container_width=True):
+            st.rerun()
+
+    sesiones_cohortes = listar_sesiones_activas()
+    if not sesiones_cohortes:
+        st.info("No se registran casos activos o pausados en la nube en este momento. Cuando un residente inicie o pause un caso, aparecerá aquí inmediatamente.")
+        return
+
+    # Métricas resumidas
+    c_m1, c_m2, c_m3 = st.columns(3)
+    total_alumnos = len(sesiones_cohortes)
+    en_pausa = sum(1 for s in sesiones_cohortes if s.get("en_standby"))
+    en_curso = total_alumnos - en_pausa
+    c_m1.metric("Simulaciones Totales", total_alumnos)
+    c_m2.metric("🟢 En Guardia Activa", en_curso)
+    c_m3.metric("⏸️ En Pausa (Standby)", en_pausa)
+
+    st.markdown("---")
+    st.markdown("#### 📋 Cohorte de Casos Registrados en la Nube")
+    resumen_filas = []
+    for s in sesiones_cohortes:
+        turnos = s.get("turnos_chat") or len(s.get("mensajes", []))
+        gasto = s.get("gasto_ars", 0)
+        try:
+            gasto_str = f"${gasto:,.0f}".replace(",", ".")
+        except Exception:
+            gasto_str = f"${gasto}"
+        resumen_filas.append({
+            "ID Residente": s.get("alumno_id", "Desconocido"),
+            "Caso Clínico": s.get("caso_activo_nombre", "Caso clínico"),
+            "Turnos de Diálogo": turnos,
+            "Estado Paciente": s.get("estado_clinico", "Compensado"),
+            "Gasto Estudios": gasto_str,
+            "Estado": "⏸️ En Pausa (Standby)" if s.get("en_standby") else "🟢 Activo en Guardia",
+            "Última Actividad (UTC)": str(s.get("ultima_actualizacion", ""))[:19].replace("T", " ")
+        })
+    df_resumen_ses = pd.DataFrame(resumen_filas)
+    st.dataframe(df_resumen_ses, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.markdown("#### 🔍 Auditor de Diálogo Clínico Interactivo (Transcripción Completa)")
+    st.markdown("Seleccione un residente del menú desplegable para inspeccionar la **conversación textual completa** que mantuvo con Socrático:")
+
+    nombres_opciones = []
+    for s in sesiones_cohortes:
+        a_id = s.get("alumno_id", "Residente")
+        c_nom = s.get("caso_activo_nombre", "Caso")
+        turnos_c = s.get("turnos_chat") or len(s.get("mensajes", []))
+        estado_badge = "⏸️ Pausado" if s.get("en_standby") else "🟢 Activo"
+        nombres_opciones.append(f"{a_id} | {c_nom} ({turnos_c} turnos - {estado_badge})")
+
+    sel_idx = st.selectbox(
+        "Seleccionar interacción de residente a inspeccionar:",
+        range(len(nombres_opciones)),
+        format_func=lambda i: nombres_opciones[i],
+        key="sb_auditor_sesion_alumno_main"
+    )
+
+    ses_sel = sesiones_cohortes[sel_idx]
+    mensajes_dialogo = ses_sel.get("mensajes", [])
+
+    c_aud1, c_aud2, c_aud3, c_aud4 = st.columns(4)
+    c_aud1.metric("Residente", ses_sel.get("alumno_id", "N/A"))
+    c_aud2.metric("Intercambios (Turnos)", len(mensajes_dialogo))
+    c_aud3.metric("Estado Hemodinámico", ses_sel.get("estado_clinico", "Compensado"))
+    c_aud4.metric("Gasto Total ARS", f"${ses_sel.get('gasto_ars', 0):,}".replace(",", "."))
+
+    with st.expander("💬 Transcripción Completa del Diálogo Socrático (Paso a Paso)", expanded=True):
+        if not mensajes_dialogo:
+            st.info("No se registran mensajes intercambiados todavía en esta sesión.")
+        else:
+            texto_transcripcion = []
+            for idx_m, m in enumerate(mensajes_dialogo, 1):
+                rol = m.get("role", "model")
+                partes = m.get("parts", "")
+                if rol == "user":
+                    st.markdown(f"**🧑‍⚕️ Residente (Intervención #{idx_m}):**")
+                    st.info(partes)
+                    texto_transcripcion.append(f"[TURNO #{idx_m} - RESIDENTE]\n{partes}\n")
+                else:
+                    st.markdown(f"**🤖 Socrático / Comité Evaluador:**")
+                    st.markdown(partes)
+                    st.markdown("---")
+                    texto_transcripcion.append(f"[TURNO #{idx_m} - SOCRÁTICO]\n{partes}\n")
+
+            # Exportación del diálogo para ateneos
+            txt_export = (
+                f"============================================================\n"
+                f"REGISTRO DE AUDITORÍA CLÍNICA - SOCRÁTICO (HOSPITAL DR. HORACIO HELLER)\n"
+                f"============================================================\n"
+                f"Residente ID: {ses_sel.get('alumno_id')}\n"
+                f"Caso: {ses_sel.get('caso_activo_nombre')}\n"
+                f"Última Actualización: {ses_sel.get('ultima_actualizacion')}\n"
+                f"Total Mensajes: {len(mensajes_dialogo)}\n"
+                f"Estado Hemodinámico: {ses_sel.get('estado_clinico')}\n"
+                f"Gasto Acumulado: ARS {ses_sel.get('gasto_ars')}\n"
+                f"============================================================\n\n"
+                + "\n".join(texto_transcripcion)
+            )
+            st.download_button(
+                label=f"📥 Descargar Diálogo Completo de {ses_sel.get('alumno_id')} (.txt)",
+                data=txt_export,
+                file_name=f"dialogo_{ses_sel.get('alumno_id')}_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                mime="text/plain",
+                key=f"btn_descarga_txt_dialogo_main_{sel_idx}",
+                use_container_width=True
+            )
+
+    # Si ya tiene evaluación formativa emitida
+    eval_activa = ses_sel.get("evaluacion_activa")
+    if eval_activa and isinstance(eval_activa, dict):
+        with st.expander("🎓 Dictamen & Evaluación Formativa Emitida para esta Sesión", expanded=False):
+            st.json(eval_activa)
+
+    col_purg1, _ = st.columns([1.5, 3])
+    with col_purg1:
+        if st.button("🧹 Limpiar Sesiones en Standby de Disco Local", key="btn_limpiar_todas_sesiones_main", help="Elimina los casos pausados acumulados en el archivo local de respaldo."):
+            with open(SESIONES_ACTIVAS_FILE, "w", encoding="utf-8") as f_cl:
+                json.dump({}, f_cl)
+            st.success("Sesiones depuradas del servidor local.")
+            st.rerun()
+
+
 def exportar_sesion_json(alumno_id: str, estado: Dict[str, Any]) -> str:
     """
     Serializa el estado completo de un caso en una cadena JSON formateada y lista para descargar.
@@ -6799,6 +6928,10 @@ def _ejecutar_motor_dialectico_local(mensaje_usuario_final: str, aviso: str = ""
         parrafos_resp.append("⏱️ **Pausa Diagnóstica (Diagnostic Timeout):** Excelente detención reflexiva.\n\nRevisemos juntos: ¿Qué dato de la historia clínica o de las constantes vitales basales NO encaja del todo con tu hipótesis diagnóstica principal? ¿Podríamos estar sesgados por anclaje o disponibilidad?")
     elif "desfibril" in m_lower or "cardiover" in m_lower or "paro" in m_lower or "rcp" in m_lower:
         parrafos_resp.append("⚡ **Tutor Socrático:** Conducta de resucitación de emergencia.\n\n¿El ritmo detectado en el monitor es desfibrilable (FV / TV sin pulso) o no desfibrilable (AESP / Asistolia)? ¿Cuál es la energía seleccionada y qué causas reversibles (las 5H y 5T) estás tratando en paralelo?")
+    elif "hiponatrem" in m_lower or "sodio" in m_lower or "ionograma" in m_lower or "tiazid" in m_lower or "osmolar" in m_lower:
+        parrafos_resp.append("🧂 **Tutor Socrático (Medio Interno):** Has identificado una sospecha clave de hiponatremia aguda o subaguda.\n\nConsiderando los antecedentes de tratamiento con hidroclorotiazida y la ausencia de fiebre o signos de focalidad neurológica:\n1. ¿Cómo clasificarías la severidad de esta hiponatremia según los síntomas clínicos (moderadamente severa vs severa con riesgo inminente de edema cerebral)?\n2. ¿Cuál es tu límite máximo de corrección de sodio en 24 horas para evitar el temido **síndrome de desmielinización osmótica (mielinólisis pontina)**?\n3. ¿Indicarías bolo de solución salina al 3% (100-150 ml) o suspensión del diurético tiazídico con reposición hidroelectrolítica guiada por volemia?")
+    elif "hiperton" in m_lower or "3%" in m_lower:
+        parrafos_resp.append("💉 **Tutor Socrático (Solución Salina Hipertónica al 3%):** Planteas infusión de cloruro de sodio hipertónico.\n\nSegún la Guía Oficial (Sociedad Española de Nefrología / Consenso Europeo):\n¿La paciente presenta síntomas neurológicos graves (estupor, convulsiones, coma) que justifiquen bolos rápidos de 100-150 ml de NaCl al 3% en 20 minutos, o se trata de una hiponatremia subaguda/crónica donde la meta es una elevación controlada no mayor a 8-10 mEq/L en las primeras 24 horas para proteger la mielina pontina?")
     elif "analges" in m_lower or "morfina" in m_lower or "fentanil" in m_lower or "dolor" in m_lower:
         parrafos_resp.append("💊 **Tutor Socrático:** Manejo analgésico del dolor agudo.\n\nEl alivio del dolor es ético y fisiológico. ¿Qué fármaco y dosis titulas para calmar el sufrimiento sin deprimir la hemodinámica ni enmascarar signos evolutivos de abdomen agudo o shock?")
     else:
@@ -7839,32 +7972,60 @@ with st.sidebar:
         placeholder="AIzaSy...",
         key="api_key_field"
     )
-    if gemini_api_key and gemini_api_key.strip():
-        gemini_api_key = gemini_api_key.strip().strip('"').strip("'").replace("GEMINI_API_KEY=", "").strip()
-        st.session_state.api_key_guardada = gemini_api_key
-        st.caption(f"🟢 Clave ingresada ({len(gemini_api_key)} caracteres)")
-        if st.button("🔍 Probar Clave y Diagnosticar Modelos", use_container_width=True):
-            with st.spinner("Consultando catálogo de modelos a Google..."):
+    # Sanitización exhaustiva de la clave
+    api_key_limpia = ""
+    if gemini_api_key:
+        api_key_limpia = gemini_api_key.strip().strip('"').strip("'").strip('`')
+        if "GEMINI_API_KEY=" in api_key_limpia:
+            api_key_limpia = api_key_limpia.split("GEMINI_API_KEY=")[-1]
+        elif "GEMINI_API_KEY =" in api_key_limpia:
+            api_key_limpia = api_key_limpia.split("GEMINI_API_KEY =")[-1]
+        api_key_limpia = api_key_limpia.strip().strip('"').strip("'").strip('`').strip()
+        st.session_state.api_key_guardada = api_key_limpia
+        gemini_api_key = api_key_limpia
+
+    if api_key_limpia:
+        k_hash = api_key_limpia[:8]
+        estado_previo = st.session_state.get(f"k_validada_{k_hash}", None)
+        
+        if estado_previo is True:
+            st.caption(f"🟢 **Conexión Verificada:** Google AI Studio activo ({len(api_key_limpia)} caracteres)")
+        elif estado_previo is False:
+            st.caption(f"🔴 **Clave No Autorizada (Error 401):** Google rechazó esta clave. Haga clic en 'Probar Conexión'.")
+        else:
+            if not api_key_limpia.startswith("AIzaSy"):
+                st.caption(f"⚠️ **Formato inusual:** Suele comenzar con `AIzaSy`. Haga clic en 'Probar Conexión'.")
+            else:
+                st.caption(f"🟡 **Clave cargada** ({len(api_key_limpia)} caracteres) — Pendiente de validación con Google")
+
+        if st.button("🔍 Probar Clave y Diagnosticar Conexión", use_container_width=True):
+            with st.spinner("Consultando estado a Google AI Studio..."):
                 try:
                     from google import genai
-                    c_diag = genai.Client(api_key=gemini_api_key)
+                    c_diag = genai.Client(api_key=api_key_limpia)
                     lista_m = []
                     for mod in c_diag.models.list():
                         nombre_limpio = mod.name.replace("models/", "") if mod.name else ""
-                        lista_m.append(nombre_limpio)
+                        if "gemini" in nombre_limpio.lower():
+                            lista_m.append(nombre_limpio)
                     if lista_m:
-                        st.success(f"✅ ¡Clave válida! {len(lista_m)} modelos disponibles en tu cuenta.")
-                        st.info(f"Modelos detectados: {', '.join(lista_m[:6])}")
+                        st.session_state[f"k_validada_{k_hash}"] = True
+                        st.success(f"✅ ¡Conectado a Google AI Studio! ({len(lista_m)} modelos disponibles)")
+                        st.info(f"Modelos detectados: {', '.join(lista_m[:4])}")
                     else:
-                        st.warning("⚠️ La clave conectó pero la lista de modelos está vacía.")
+                        st.session_state[f"k_validada_{k_hash}"] = False
+                        st.warning("⚠️ Clave conectó pero no retornó modelos disponibles.")
                 except Exception as e_diag:
-                    st.error(f"❌ Error al consultar modelos con esta clave:\n{str(e_diag)}")
+                    st.session_state[f"k_validada_{k_hash}"] = False
+                    st.error(f"❌ Error al conectar con Google AI Studio:\n{str(e_diag)}")
                     if "401" in str(e_diag) or "unauthenticated" in str(e_diag).lower() or "api key not valid" in str(e_diag).lower():
-                        st.warning("💡 **Causa del Error 401 (No autorizada):** Google AI Studio rechazó esta clave API. Verifique que no contenga espacios ni caracteres faltantes, o cree una clave nueva y limpia en https://aistudio.google.com/apikey.")
+                        st.warning("💡 **Causa del Error 401 (No autorizada):** Google AI Studio rechazó esta clave API. Verifique que comience con `AIzaSy`, no tenga espacios al inicio o final, o cree una nueva en https://aistudio.google.com/apikey.")
                     elif "404" in str(e_diag) or "not found" in str(e_diag).lower():
-                        st.warning("💡 **Causa del Error 404:** Esta API Key fue creada en Google Cloud sin habilitar la **'Generative Language API'**, o en un proyecto con restricciones. Ve a https://aistudio.google.com/apikey y crea una clave nueva allí.")
+                        st.warning("💡 **Causa del Error 404:** Seleccione `gemini-2.0-flash` en la barra lateral o cree la clave en https://aistudio.google.com/apikey.")
+                    elif "429" in str(e_diag) or "quota" in str(e_diag).lower():
+                        st.warning("💡 **Causa del Error 429:** Límite de solicitudes por minuto alcanzado. Aguarde 20 segundos.")
     else:
-        st.caption("🔴 Pegue su clave aquí y presione Enter (o use el simulador en modo local sin clave)")
+        st.caption("⚪ **Sin clave ingresada:** El simulador opera en modo autónomo con el **Motor Clínico Local de Guardia (Hospital Heller)**.")
     
     with st.expander("❓ ¿Cómo obtener tu API Key gratuita en 2 min?"):
         st.markdown("""
@@ -9912,12 +10073,16 @@ elif modo_nav_actual == '🔐 Gestión Docente & Jefatura':
                 else:
                     st.error('❌ Clave incorrecta.')
     else:
-        tab_sugerencias, tab_metricas, tab_estres, tab_creador = st.tabs([
+        tab_dialogos, tab_sugerencias, tab_metricas, tab_estres, tab_creador = st.tabs([
+            '💬 Diálogos & Sesiones en Vivo',
             '📥 Buzón de Sugerencias (Supabase)',
             '📊 Métricas & Auditoría Docente',
             '⚡ Laboratorio de Estrés & Benchmarking',
             '➕ Creador & Banco de Casos'
         ])
+        with tab_dialogos:
+            render_supervision_sesiones_activas_supabase()
+
         with tab_sugerencias:
             render_buzon_sugerencias_supabase()
 
@@ -10329,23 +10494,7 @@ elif modo_nav_actual == '🔐 Gestión Docente & Jefatura':
             else:
                 st.info("Aún no se han registrado consultas o sugerencias en el buzón. Aparecerán aquí cuando los residentes envíen dudas desde el simulador.")
     
-            # Supervisión de Sesiones Activas en Guardia (Solo Docente)
-            st.markdown("---")
-            st.markdown("### 👥 Supervisión de Casos en Curso & Standby de la Cohorte")
-            st.caption("Panel exclusivo para instructores. Permite monitorear qué residentes tienen casos en pausa o en curso en la guardia sin exponerlos públicamente entre alumnos.")
-            sesiones_cohortes = listar_sesiones_activas()
-            if sesiones_cohortes:
-                df_ses_cohorte = pd.DataFrame(sesiones_cohortes)
-                st.dataframe(df_ses_cohorte, use_container_width=True, hide_index=True)
-                col_purg1, _ = st.columns([1.5, 3])
-                with col_purg1:
-                    if st.button("🧹 Limpiar Todas las Sesiones en Standby", key="btn_limpiar_todas_sesiones", help="Elimina los casos pausados acumulados en el servidor."):
-                        with open(SESIONES_ACTIVAS_FILE, "w", encoding="utf-8") as f_cl:
-                            json.dump({}, f_cl)
-                        st.success("Sesiones depuradas del servidor.")
-                        st.rerun()
-            else:
-                st.info("No hay residentes con casos activos o pausados en el servidor en este momento.")
+
     
             # =============================================================
             # MEMORIA DINÁMICA DE ATENEOS & DOCTRINA DEL SERVICIO (HOSPITAL DR. HORACIO HELLER)
